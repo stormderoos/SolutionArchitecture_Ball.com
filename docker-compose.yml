@@ -1,0 +1,60 @@
+services:
+    redis:
+        image: redis:7-alpine
+        ports:
+            - "6379:6379"
+
+    rabbitmq:
+        image: rabbitmq:management-alpine
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+        healthcheck:
+            test: rabbitmq-diagnostics -q ping
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    api:
+        build:
+            context: ./api
+        environment:
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            RABBITMQ_URL: amqp://rabbitmq
+        ports:
+            - "4000:4000"
+        depends_on:
+            redis:
+                condition: service_started
+            rabbitmq:
+                condition: service_healthy
+
+    api-worker:
+        build:
+            context: ./api-worker
+        environment:
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            RABBITMQ_URL: amqp://rabbitmq
+        depends_on:
+            redis:
+                condition: service_started
+            rabbitmq:
+                condition: service_healthy
+
+    special-worker:
+        build:
+            context: ./special-worker
+        environment:
+            RABBITMQ_URL: amqp://rabbitmq
+        depends_on:
+            rabbitmq:
+                condition: service_healthy
+
+    web:
+        build:
+            context: ./web
+        ports:
+            - "3000:3000"
+
