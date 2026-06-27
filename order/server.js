@@ -219,9 +219,9 @@ app.get("/event", async (req, res) => {
 });
 
 // Get external data
-app.get("/customerData", (req, res) => {
+app.get("/customerData", async (req, res) => {
     try {
-        const customers = excelReader.readExcelFile(0);
+        const customers = await excelReader.readExcelFile(0);
         res.json(customers);
     } catch (err) {
         res.status(500).json({ error: "Failed to read customer data" });
