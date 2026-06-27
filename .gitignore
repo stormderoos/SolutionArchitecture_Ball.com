@@ -4,6 +4,8 @@
 # General files
 *~
 *.DS_STORE
+.vs/
+
 
 # Dependency managers
 node_modules/

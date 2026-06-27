@@ -1,60 +1,57 @@
 services:
-    redis:
-        image: redis:7-alpine
-        ports:
-            - "6379:6379"
-
     rabbitmq:
         image: rabbitmq:management-alpine
         ports:
             - "5672:5672"
             - "15672:15672"
+        volumes:
+            - rabbitmq_data:/var/lib/rabbitmq
         healthcheck:
             test: rabbitmq-diagnostics -q ping
             interval: 10s
             timeout: 5s
             retries: 5
 
-    api:
+    mysql:
+      image: mysql:8.0
+      environment:
+        MYSQL_ROOT_PASSWORD: root
+      ports:
+        - "3306:3306"
+      volumes:
+        - mysql_data:/var/lib/mysql
+        - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+    order:
         build:
-            context: ./api
+            context: ./order
         environment:
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
             RABBITMQ_URL: amqp://rabbitmq
+            DB_HOST: mysql
+            DB_USER: root
+            DB_PASS: root
+            DB_NAME: OrderServiceDB
+        restart: unless-stopped
         ports:
-            - "4000:4000"
+            - "5000:5000"
         depends_on:
-            redis:
-                condition: service_started
             rabbitmq:
                 condition: service_healthy
 
-    api-worker:
+    warehouse:
         build:
-            context: ./api-worker
-        environment:
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
-            RABBITMQ_URL: amqp://rabbitmq
-        depends_on:
-            redis:
-                condition: service_started
-            rabbitmq:
-                condition: service_healthy
-
-    special-worker:
-        build:
-            context: ./special-worker
+            context: ./warehouse
         environment:
             RABBITMQ_URL: amqp://rabbitmq
+            DB_HOST: mysql
+            DB_USER: root
+            DB_PASS: root
+            DB_NAME: WarehouseServiceDB
+        restart: unless-stopped
         depends_on:
             rabbitmq:
                 condition: service_healthy
 
-    web:
-        build:
-            context: ./web
-        ports:
-            - "3000:3000"
-
+volumes:
+  rabbitmq_data:
+  mysql_data:
