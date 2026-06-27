@@ -2,9 +2,20 @@ const db = require("./dbRepository");
 
 module.exports = {
     // Functions
-    // Create a product
-    async createProduct(request) {
-        db.createProduct(request.product)
-        return request.product;
-    }
+    // Create a pick list
+    async createPickList(orderId, productsToPick) {
+        try {
+            let picks = [];
+
+            // Create a pick list for all the products
+            for (const ptp of productsToPick) {
+                picks.push(await db.createOrderProduct(orderId, ptp.productId, ptp.amount));
+            }
+
+            return picks;
+        } catch (error) {
+            console.error("Error creating order:", error);
+            throw error;
+        }
+    },
 };

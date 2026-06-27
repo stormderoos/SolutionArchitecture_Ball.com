@@ -7,7 +7,7 @@ module.exports = {
             const createdOrder = await db.createOrder(order);
 
             for (const op of orderProducts) {
-                await db.createOrderProduct(op.orderId, op.productId, op.amount);
+                await db.createOrderProduct(createdOrder.orderId, op.productId, op.amount);
             }
 
             return createdOrder;
@@ -18,8 +18,9 @@ module.exports = {
     },
 
     // Update an order
-    async updateOrder(order) {
+    async updateOrder(order, orderProducts) {
         try {
+            await this.updateOrderProducts(order.orderId, orderProducts);
             return await db.updateOrder(order);
         } catch (error) {
             console.error("Error updating order:", error);
@@ -172,6 +173,27 @@ module.exports = {
         }
     },
 
+    // Update a order product
+    async updateOrderProducts(orderId, orderProducts) {
+        try {
+            // Update order products
+            for (op in orderProducts) {
+                // Get the product order connection
+                const orderProduct = db.getOrderProduct(orderId, op.productId);
+
+                // Update or create the order product
+                if (orderProduct !== null) {
+                    db.createOrderProduct(orderId, op.productId, op.amount);
+                } else {
+                    db.updateOrderProduct(orderId, op.productId, op.amount);
+                }
+            }
+        } catch (error) {
+            console.error("Error deleting product:", error);
+            throw error;
+        }
+    },
+
     // Create an event log
     async createEventLog(eventLog) {
         try {
@@ -182,12 +204,12 @@ module.exports = {
         }
     },
 
-    // Get an event log
-    async getEventLog(eventLogId) {
+    // Get all event logs
+    async getEventLogs() {
         try {
-            return await db.getEventLog(eventLogId);
+            return await db.getEventLogs();
         } catch (error) {
-            console.error("Error getting event log:", error);
+            console.error("Error getting event logs:", error);
             throw error;
         }
     }

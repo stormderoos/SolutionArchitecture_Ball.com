@@ -19,7 +19,7 @@ const run = async () => {
 
         // Handle order creation
         if (json.meta.job === "move_product") {
-            moveProduct(json.data.order)
+            moveProduct(json.data.order.orderId, products)
         }
 
         // Remove the message from the queue
@@ -31,11 +31,12 @@ run();
 
 // Functions
 // Move products
-const moveProduct = async (order) => {
+const moveProduct = async (orderId, productsToPick) => {
     // Handle product movement
     console.log(`[WarehouseService] Moving product...`);
 
-    //Move the products
+    //Create a pick list to move the products to pick
+    dbService.createPickList(orderId, productsToPick);
 
     // Publish event to the order service
     rabbitmqChannel.publish(
@@ -50,7 +51,7 @@ const moveProduct = async (order) => {
                 },
                 data: {
                     orderId: order.orderId,
-                    orderStatus: "On the way"
+                    orderStatus: "Picking products"
                 }
             })
         ),

@@ -7,7 +7,7 @@ module.exports = {
         // Creare the order
         const [result] = await db.query(
             "INSERT INTO Orders (orderStatus, customerId) VALUES (?, ?)",
-            [order.orderStatus, order.customerId]
+            ["Order created", order.customerId]
         );
 
         // Add the generated orderId to the order object
@@ -159,6 +159,15 @@ module.exports = {
         );
     },
 
+    // Update order product connection
+    async updateOrderProduct(orderId, productId, amount) {
+        // Create oreder product
+        const [result] = await db.query(
+            "UPDATE OrderProduct SET amount = ? WHERE productId = ? AND orderId = ?",
+            [amount, productId, orderId]
+        );
+    },
+
     // Delete order product connection
     async deleteOrderProduct(orderId, productId) {
         // Delete oreder product
@@ -206,14 +215,14 @@ module.exports = {
         return eventLog;
     },
 
-    // Get a event log
-    async getEventLog(eventLogId) {
-        // Get the event log
+    // Get all event logs
+    async getEventLogs() {
+        // Get all event logs
         const [rows] = await db.query(
-            "SELECT * FROM EventLogs WHERE eventLogsId = ?",
+            "SELECT * FROM EventLogs",
             [eventLogId]
         );
 
-        return rows[0];
+        return rows;
     }
 };

@@ -126,7 +126,7 @@ const run = async () => {
                 date: date
             })
 
-            console.log(`[OrderService] Updated order: ${order}`)
+            console.log(`[OrderService] Updated order status: ${order}`)
         }
 
         // Remove the message from the queue
@@ -164,33 +164,60 @@ app.use((req, res, next) => {
 // Api routes
 // Create an order
 app.post("/order/create", async (req, res) => {
-    console.log("req.body", req.body);
-    await createOrder(req.body);
+    try {
+        console.log("[OrderService] Order create: ", req.body);
+        const result = await createOrder(req.body);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Update an order
-app.post("/order/update", async (req, res) => {
-    console.log("req.body", req.body);
-    await updateOrder(req.body);
+app.put("/order/update", async (req, res) => {
+    try {
+        console.log("[OrderService] Order update: ", req.body);
+        const result = await updateOrder(req.body);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Get an order
-app.get("/order", async (req, res) => {
-    console.log("req.body", req.body);
-    await getOrder(req.body);
+app.get("/order/:id", async (req, res) => {
+    try {
+        console.log("[OrderService] Order get: ", req.params.id);
+        const result = await getOrder(req.params.id);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Delete an order
-app.delete("/order", async (req, res) => {
-    console.log("req.body", req.body);
-    await deleteOrder(req.body);
+app.delete("/order/:id", async (req, res) => {
+    try {
+        console.log("[OrderService] Order delete: ", req.params.id);
+        const result = await deleteOrder(req.params.id);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
 
 // Get a event log
 app.get("/event", async (req, res) => {
-    console.log("req.body", req.body);
-    await dbService.getEventLog(req.body);
+    try {
+        console.log("[OrderService] Event logs get all");
+        const result = await dbService.getEventLog();
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
 
 // Disable powered by header for security reasons
 app.disable("x-powered-by");
@@ -207,7 +234,7 @@ const createOrder = async (request) => {
     console.log(`[OrderService] Creating order...`);
 
     // Add order to database
-    const createdOrder = await dbService.createOrder(request.order, request.orderProducts)
+    const createdOrder = await dbService.createOrder(request.order, request.products)
 
     // Publish event to the warehouse service
     rabbitmqChannel.publish(
@@ -240,7 +267,8 @@ const createOrder = async (request) => {
                     event: "order_created",
                     job: "start_payment"
                 },
-                data: createdOrder
+                data: createdOrder,
+                products: request.products
             })
         ),
         { persistent: true }
@@ -257,7 +285,8 @@ const createOrder = async (request) => {
                     event: "order_created",
                     job: "add_order"
                 },
-                data: createdOrder
+                data: createdOrder,
+                products: request.products
             })
         ),
         { persistent: true }
@@ -267,11 +296,13 @@ const createOrder = async (request) => {
     const date = new Date()
     const log = dbService.createEventLog({
         name: `Created order at ${date}`,
-        description: `Created a new order with order id ${order.orderId} at ${date}`,
+        description: `Created a new order with order id ${createdOrder.orderId} at ${date}`,
         date: date
     })
 
-    console.log(`[OrderService] Order created and event published`);
+    console.log(`[OrderService] Order with id ${createdOrder.orderId} created and event published`);
+
+    return createdOrder;
 }
 
 // Update a order
@@ -280,7 +311,7 @@ const updateOrder = async (request) => {
     console.log(`[OrderService] Updateing order ${request.order.orderId}`);
 
     // Update order in database
-    const updatedOrder = await dbService.updateOrder(request.order)
+    const updatedOrder = await dbService.updateOrder(request.order, request.products)
 
     // Publish event to the warehouse service
     rabbitmqChannel.publish(
@@ -354,20 +385,22 @@ const updateOrder = async (request) => {
     const date = new Date()
     const log = dbService.createEventLog({
         name: `Updated order at ${date}`,
-        description: `Updated the order with order id ${order.orderId} at ${date}`,
+        description: `Updated the order with order id ${updatedOrder.orderId} at ${date}`,
         date: date
     })
 
     console.log(`[OrderService] Order updated and event published`);
+
+    return updatedOrder;
 }
 
 // Delete a order
-const deleteOrder = async (request) => {
+const deleteOrder = async (orderId) => {
     // Handle order delete
-    console.log(`[OrderService] Deleteing order ${request.orderId}`);
+    console.log(`[OrderService] Deleteing order ${orderId}`);
 
     // Delte the order from the database
-    deletedOrder = await dbService.deleteOrder(request.orderId)
+    deletedOrder = await dbService.deleteOrder(orderId)
 
     // Publish event to the warehouse service
     rabbitmqChannel.publish(
@@ -380,7 +413,7 @@ const deleteOrder = async (request) => {
                     event: "order_deleted",
                     job: "delete_order"
                 },
-                data: request.orderId
+                data: orderId
             })
         ),
         { persistent: true }
@@ -397,7 +430,7 @@ const deleteOrder = async (request) => {
                     event: "order_deleted",
                     job: "delete_order"
                 },
-                data: request.orderId
+                data: orderId
             })
         ),
         { persistent: true }
@@ -414,7 +447,7 @@ const deleteOrder = async (request) => {
                     event: "order_deleted",
                     job: "delete_order"
                 },
-                data: request.orderId
+                data: orderId
             })
         ),
         { persistent: true }
@@ -431,7 +464,7 @@ const deleteOrder = async (request) => {
                     event: "order_deleted",
                     job: "delete_order"
                 },
-                data: request.orderId
+                data: orderId
             })
         ),
         { persistent: true }
@@ -441,7 +474,7 @@ const deleteOrder = async (request) => {
     const date = new Date()
     const log = dbService.createEventLog({
         name: `Deleted order at ${date}`,
-        description: `Delted the order with order id ${request.orderId} at ${date}`,
+        description: `Delted the order with order id ${orderId} at ${date}`,
         date: date
     })
 
@@ -449,13 +482,15 @@ const deleteOrder = async (request) => {
 }
 
 // Get a order
-const getOrder = async (request) => {
-    console.log(`[OrderService] Getting order ${request.orderId}`);
+const getOrder = async (orderId) => {
+    console.log(`[OrderService] Getting order ${orderId}`);
 
     // Get the order from the database
-    const order = dbService.getOrder(request.orderId);
+    const order = dbService.getOrder(orderId);
 
     console.log(`Order: ${order}`);
+
+    return order;
 }
 
 // Create a new channel
