@@ -3,7 +3,6 @@ const amqp = require("amqplib");
 const express = require("express");
 const rabbitmqUrl = process.env.RABBITMQ_URL || "amqp://localhost";
 const dbService = require("./dbService");
-const { getOrder, getEventLog } = require("./dbRepository");
 
 // Global variables
 let rabbitmqChannel = null;
