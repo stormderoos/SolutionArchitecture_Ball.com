@@ -3,6 +3,7 @@ const amqp = require("amqplib");
 const express = require("express");
 const rabbitmqUrl = process.env.RABBITMQ_URL || "amqp://localhost";
 const dbService = require("./dbService");
+const excelReader = require("./excelReader");
 
 // Global variables
 let rabbitmqChannel = null;
@@ -206,7 +207,6 @@ app.delete("/order/:id", async (req, res) => {
     }
 });
 
-
 // Get a event log
 app.get("/event", async (req, res) => {
     try {
@@ -218,6 +218,15 @@ app.get("/event", async (req, res) => {
     }
 });
 
+// Get external data
+app.get("/customerData", (req, res) => {
+    try {
+        const customers = excelReader.readExcelFile(0);
+        res.json(customers);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to read customer data" });
+    }
+});
 
 // Disable powered by header for security reasons
 app.disable("x-powered-by");

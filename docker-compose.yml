@@ -31,6 +31,8 @@ services:
             DB_USER: root
             DB_PASS: root
             DB_NAME: OrderServiceDB
+        volumes:
+          - ./customer_data.csv:/app/customer_data.csv
         restart: unless-stopped
         ports:
             - "5000:5000"
