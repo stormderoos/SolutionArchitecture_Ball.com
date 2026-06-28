@@ -18,11 +18,16 @@ const run = async () => {
 
         console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
 
-        // Handel incomming messages
-        await handelMessage(json.meta.job);
-
-        // Remove the message from the queue
-        rabbitmqChannel.ack(message);
+        try {
+            // Handel incomming messages
+            await handelMessage(json);
+        } catch (error) {
+            // Log the error but do not crash the process or requeue forever (no poison-message loop)
+            console.error(`[OrderService] Error handling message ${json.meta.uuid}:`, error);
+        } finally {
+            // Always remove the message from the queue
+            rabbitmqChannel.ack(message);
+        }
     });
 };
 
@@ -255,8 +260,17 @@ const getOrder = async (orderId) => {
 
 // Create a new channel
 async function createChannel(queueName, sourceName, pattern) {
-    // Connect to rabbitMQ
-    const connection = await amqp.connect(rabbitmqUrl);
+    // Connect to rabbitMQ (retry until available, so we don't crash on a slow broker startup)
+    let connection;
+    for (let attempt = 1; ; attempt++) {
+        try {
+            connection = await amqp.connect(rabbitmqUrl);
+            break;
+        } catch (err) {
+            console.log(`[BusManager] RabbitMQ not ready (attempt ${attempt}), retrying in 3s...`);
+            await new Promise((r) => setTimeout(r, 3000));
+        }
+    }
     console.log(`[BusManager] Connected to RabbitMQ`);
 
     // Create a channel
@@ -296,17 +310,19 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
 }
 
 // Handel incomming messages
-async function handelMessage(job) {
+async function handelMessage(json) {
+    const job = json.meta.job;
+
     // Handle update product
     if (job === "update_product") {
         // Update the product
-        let product = dbService.updateProduct(meta.data);
+        let product = dbService.updateProduct(json.data);
 
         // Add the event to history
         const date = new Date()
         const log = dbService.createEventLog({
             name: `Update product at ${date}`,
-            description: `Update the product with id ${meta.data.productId} at ${date}`,
+            description: `Update the product with id ${json.data.productId} at ${date}`,
             date: date
         })
 
@@ -316,13 +332,13 @@ async function handelMessage(job) {
     // Handle update costumer
     if (job === "update_costumer") {
         // Update the costumer
-        let costumer = dbService.updateCostumer(meta.data);
+        let costumer = dbService.updateCostumer(json.data);
 
         // Add the event to history
         const date = new Date()
         const log = dbService.createEventLog({
             name: `Update costumer at ${date}`,
-            description: `Update the costumer with id ${meta.data.costumerId} at ${date}`,
+            description: `Update the costumer with id ${json.data.costumerId} at ${date}`,
             date: date
         })
 
@@ -396,7 +412,7 @@ async function handelMessage(job) {
     // Handle update the order status
     if (job === "update_status") {
         // Update the order status
-        const order = dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
+        const order = await dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
 
         // Add the event to history
         const date = new Date()

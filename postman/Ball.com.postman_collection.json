@@ -1,0 +1,176 @@
+{
+  "info": {
+    "_postman_id": "b1a11e00-0000-4000-8000-ballcom000001",
+    "name": "Ball.com",
+    "description": "Ball.com microservices — order & payment endpoints, plus a demo-scenario that shows eventual consistency.\n\nServices die HTTP aanbieden:\n- order: http://localhost:5000\n- payment: http://localhost:5001\n\nStart eerst de stack met `docker compose up --build`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "orderHost", "value": "http://localhost:5000" },
+    { "key": "paymentHost", "value": "http://localhost:5001" },
+    { "key": "orderId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Order service",
+      "item": [
+        {
+          "name": "Create order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.orderId) {",
+                  "  pm.collectionVariables.set('orderId', data.orderId);",
+                  "  console.log('orderId =', data.orderId);",
+                  "}",
+                  "pm.test('order created', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order\": { \"customerId\": 1 },\n  \"products\": [\n    { \"productId\": 1, \"amount\": 2 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{orderHost}}/order/create" }
+          }
+        },
+        {
+          "name": "Get order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{orderHost}}/order/{{orderId}}" }
+          }
+        },
+        {
+          "name": "Update order",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order\": { \"orderId\": {{orderId}}, \"customerId\": 1, \"orderStatus\": \"Updated\" },\n  \"products\": [\n    { \"productId\": 1, \"amount\": 3 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{orderHost}}/order/update" }
+          }
+        },
+        {
+          "name": "Delete order",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{orderHost}}/order/{{orderId}}" }
+          }
+        },
+        {
+          "name": "Get event log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{orderHost}}/event" }
+          }
+        },
+        {
+          "name": "Get external customer data (CSV integration)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{orderHost}}/customerData" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment service",
+      "item": [
+        {
+          "name": "Get all payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{paymentHost}}/payments" }
+          }
+        },
+        {
+          "name": "Get payment by order id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{paymentHost}}/payment/{{orderId}}" }
+          }
+        },
+        {
+          "name": "Process payment (manual)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order\": { \"orderId\": {{orderId}}, \"customerId\": 1, \"paymentMethod\": \"forward\" },\n  \"products\": [\n    { \"productId\": 1, \"amount\": 2 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{paymentHost}}/payment/process" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Demo — eventual consistency",
+      "description": "Voer deze in volgorde uit. Stap 1 plaatst een order; de Payment-service pikt het 'start_payment'-event op en meldt 'Paid' terug. Wacht 1–2 seconden tussen stap 1 en de volgende stappen zodat de events verwerkt zijn.",
+      "item": [
+        {
+          "name": "1. Plaats order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.orderId) pm.collectionVariables.set('orderId', data.orderId);",
+                  "console.log('Nieuwe orderId =', pm.collectionVariables.get('orderId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order\": { \"customerId\": 1 },\n  \"products\": [\n    { \"productId\": 1, \"amount\": 2 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{orderHost}}/order/create" }
+          }
+        },
+        {
+          "name": "2. Bekijk betaling (door event aangemaakt)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{paymentHost}}/payment/{{orderId}}" }
+          }
+        },
+        {
+          "name": "3. Bekijk order (status wordt uiteindelijk 'Paid')",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{orderHost}}/order/{{orderId}}" }
+          }
+        }
+      ]
+    }
+  ]
+}

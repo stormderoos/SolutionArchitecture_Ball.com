@@ -110,3 +110,18 @@ SELECT 2, 2, 3;
 
 INSERT INTO PickList (pickListId, productId, amount)
 SELECT 2, 3, 10;
+
+-- ===== PaymentServiceDB (Storm / Payment service) =====
+CREATE DATABASE IF NOT EXISTS PaymentServiceDB;
+
+USE PaymentServiceDB;
+
+CREATE TABLE Payment (
+    paymentId INT AUTO_INCREMENT PRIMARY KEY,
+    orderId INT,
+    customerId INT,
+    method VARCHAR(20),
+    amount DECIMAL(10,2),
+    status VARCHAR(50),
+    date DATETIME
+);

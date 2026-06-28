@@ -17,7 +17,7 @@ services:
       environment:
         MYSQL_ROOT_PASSWORD: root
       ports:
-        - "3306:3306"
+        - "3307:3306"
       volumes:
         - mysql_data:/var/lib/mysql
         - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -50,6 +50,22 @@ services:
             DB_PASS: root
             DB_NAME: WarehouseServiceDB
         restart: unless-stopped
+        depends_on:
+            rabbitmq:
+                condition: service_healthy
+
+    payment:
+        build:
+            context: ./payment
+        environment:
+            RABBITMQ_URL: amqp://rabbitmq
+            DB_HOST: mysql
+            DB_USER: root
+            DB_PASS: root
+            DB_NAME: PaymentServiceDB
+        restart: unless-stopped
+        ports:
+            - "5001:5001"
         depends_on:
             rabbitmq:
                 condition: service_healthy

@@ -7,9 +7,9 @@ module.exports = {
         try {
             let picks = [];
 
-            // Create a pick list for all the products
+            // Create a pick list for all the products (pickListId = orderId)
             for (const ptp of productsToPick) {
-                picks.push(await db.createOrderProduct(orderId, ptp.productId, ptp.amount));
+                picks.push(await db.createPickListItem(orderId, ptp.productId, ptp.amount));
             }
 
             return picks;
