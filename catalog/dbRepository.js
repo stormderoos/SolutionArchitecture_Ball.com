@@ -32,6 +32,19 @@ function getAllProducts() {
     return products.map((product) => ({ ...product }));
 }
 
+function updateProduct(productId, updates) {
+    const existingProduct = getProductById(productId);
+    if (!existingProduct) {
+        throw new Error(`Product id ${productId} does not exist`);
+    }
+
+    if (updates.name !== undefined) existingProduct.name = updates.name;
+    if (updates.price !== undefined) existingProduct.price = Number(updates.price) || 0;
+    if (updates.weight !== undefined) existingProduct.weight = Number(updates.weight) || 0;
+
+    return { ...existingProduct };
+}
+
 function createSupplier(supplier, productIds = []) {
     const newSupplier = {
         supplierId: nextSupplierId++,
@@ -58,6 +71,17 @@ function getSupplierProducts(supplierId) {
 
 function getAllSuppliers() {
     return suppliers.map((supplier) => ({ ...supplier }));
+}
+
+function updateSupplier(supplierId, updates) {
+    const existingSupplier = suppliers.find((supplier) => supplier.supplierId === Number(supplierId));
+    if (!existingSupplier) {
+        throw new Error(`Supplier id ${supplierId} does not exist`);
+    }
+
+    if (updates.name !== undefined) existingSupplier.name = updates.name;
+
+    return { ...existingSupplier };
 }
 
 function getAllSuppliersWithProducts() {
@@ -87,9 +111,11 @@ module.exports = {
     createProduct,
     getProductById,
     getAllProducts,
+    updateProduct,
     createSupplier,
     getAllSuppliersWithProducts,
     getAllSuppliers,
+    updateSupplier,
     getSupplierProducts,
     supplierExists
 };

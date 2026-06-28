@@ -105,6 +105,26 @@ app.post("/suppliers", async (req, res) => {
     }
 });
 
+app.put("/products/:id", async (req, res) => {
+    try {
+        const updatedProduct = await dbService.updateProduct(req.params.id, req.body);
+        await publishEvent("product_updated", "update_product", updatedProduct);
+        res.json(updatedProduct);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.put("/suppliers/:id", async (req, res) => {
+    try {
+        const updatedSupplier = await dbService.updateSupplier(req.params.id, req.body);
+        await publishEvent("supplier_updated", "update_supplier", updatedSupplier);
+        res.json(updatedSupplier);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 app.disable("x-powered-by");
 
 const port = process.env.PORT || 5000;
