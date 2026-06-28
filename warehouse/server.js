@@ -19,7 +19,7 @@ const run = async () => {
 
         // Handle order creation
         if (json.meta.job === "move_product") {
-            moveProduct(json.data.order.orderId, products)
+            moveProduct(json.data.order.orderId, json.data.products)
         }
 
         // Remove the message from the queue

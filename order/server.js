@@ -18,117 +18,8 @@ const run = async () => {
 
         console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
 
-        // Handle update product
-        if (json.meta.job === "update_product") {
-            // Update the product
-            let product = dbService.updateProduct(meta.data);
-
-            // Add the event to history
-            const date = new Date()
-            const log = dbService.createEventLog({
-                name: `Update product at ${date}`,
-                description: `Update the product with id ${meta.data.productId} at ${date}`,
-                date: date
-            })
-
-            console.log(`Updated product: ${product}`)
-        }
-
-        // Handle update costumer
-        if (json.meta.job === "update_costumer") {
-            // Update the costumer
-            let costumer = dbService.updateCostumer(meta.data);
-
-            // Add the event to history
-            const date = new Date()
-            const log = dbService.createEventLog({
-                name: `Update costumer at ${date}`,
-                description: `Update the costumer with id ${meta.data.costumerId} at ${date}`,
-                date: date
-            })
-
-            console.log(`Updated costumer: ${costumer}`)
-        }
-
-        // Handle add product
-        if (json.meta.job === "add_product") {
-            // Create a product
-            const product = await dbService.createProduct(json.data);
-
-            // Add the event to history
-            const date = new Date()
-            const log = dbService.createEventLog({
-                name: `Created product at ${date}`,
-                description: `Created the product with id ${product.productId} at ${date}`,
-                date: date
-            })
-
-            console.log(`[OrderService] Created product with id: ${product.productId}`)
-        }
-
-        // Handle add costumer
-        if (json.meta.job === "add_costumer") {
-            // Create a costumer
-            const costumer = await dbService.createCostumer(json.data);
-
-            // Add the event to history
-            const date = new Date()
-            const log = dbService.createEventLog({
-                name: `Created costumer at ${date}`,
-                description: `Created the costumer with id ${costumer.costumerId} at ${date}`,
-                date: date
-            })
-
-            console.log(`[OrderService] Created costumer with id: ${costumer.costumerId}`)
-        }
-
-        // Handle costumer deletion
-        if (json.meta.job === "delete_costumer") {
-            //Delete a costumer
-            const deletedCostumer = dbService.deleteCostumer(json.data);
-
-            // Add the event to history
-            const date = new Date()
-            const log = dbService.createEventLog({
-                name: `Delete costumer at ${date}`,
-                description: `Delete the costumer with id ${json.data} at ${date}`,
-                date: date
-            })
-
-            console.log(`[OrderService] Deleted costumer with id: ${json.data}`)
-        }
-
-        // Handle product deletion
-        if (json.meta.job === "delete_product") {
-            //Delete a product
-            const deletedProduct = dbService.deleteProduct(json.data);
-
-            // Add the event to history
-            const date = new Date()
-            const log = dbService.createEventLog({
-                name: `Delete product at ${date}`,
-                description: `Delete the product with id ${json.data} at ${date}`,
-                date: date
-            })
-
-            console.log(`[OrderService] Deleted product with id: ${json.data}`)
-        }
-
-        // Handle update the order status
-        if (json.meta.job === "update_status") {
-            // Update the order status
-            const order = dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
-
-            // Add the event to history
-            const date = new Date()
-            const log = await dbService.createEventLog({
-                name: `Update order status at ${date}`,
-                description: `Update the order status of the order with id ${order.orderId} at ${date}`,
-                date: date
-            })
-
-            console.log(`[OrderService] Updated order status: ${order}`)
-        }
+        // Handel incomming messages
+        await handelMessage(json.meta.job);
 
         // Remove the message from the queue
         rabbitmqChannel.ack(message);
@@ -245,61 +136,23 @@ const createOrder = async (request) => {
     // Add order to database
     const createdOrder = await dbService.createOrder(request.order, request.products)
 
+    // Set the data to send
+    const dataToSend = {
+        order: createdOrder,
+        products: request.products
+    }
+
     // Publish event to the warehouse service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "warehouse_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_created",
-                    job: "move_product"
-                },
-                data: {
-                    order: createdOrder,
-                    products: request.products
-                }
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "warehouse_service", "order_created", "move_product", dataToSend);
 
     // Publish event to the payment service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "payment_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_created",
-                    job: "start_payment"
-                },
-                data: createdOrder,
-                products: request.products
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "payment_service", "order_created", "start_payment", dataToSend);
 
     // Publish event to the costumer service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "costumer_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_created",
-                    job: "add_order"
-                },
-                data: createdOrder,
-                products: request.products
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "costumer_service", "order_created", "add_order", dataToSend);
+
+    // Publish event to the shipment service
+    await publishMessage("local_exchange", "shipment_service", "order_created", "add_order", dataToSend);
 
     // Add the event to history
     const date = new Date()
@@ -322,73 +175,22 @@ const updateOrder = async (request) => {
     // Update order in database
     const updatedOrder = await dbService.updateOrder(request.order, request.products)
 
+    // Set the data to send
+    const dataToSend = {
+        updatedOrder: updatedOrder
+    }
+
     // Publish event to the warehouse service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "warehouse_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_updated",
-                    job: "update_order"
-                },
-                data: updatedOrder
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "warehouse_service", "order_updated", "update_order", dataToSend);
 
     // Publish event to the payment service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "payment_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_updated",
-                    job: "update_order"
-                },
-                data: updatedOrder
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "payment_service", "order_updated", "update_order", dataToSend);
 
     // Publish event to the costumer service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "costumer_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_updated",
-                    job: "update_order"
-                },
-                data: updatedOrder
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "costumer_service", "order_updated", "update_order", dataToSend);
 
-    // Publish event to the warehouse service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "warehouse_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_updated",
-                    job: "update_order"
-                },
-                data: updatedOrder
-            })
-        ),
-        { persistent: true }
-    );
+    // Publish event to the shipment service
+    await publishMessage("local_exchange", "shipment_service", "order_updated", "update_order", dataToSend);
 
     // Add the event to history
     const date = new Date()
@@ -409,75 +211,24 @@ const deleteOrder = async (orderId) => {
     console.log(`[OrderService] Deleteing order ${orderId}`);
 
     // Delte the order from the database
-    deletedOrder = await dbService.deleteOrder(orderId)
+    deletedOrder = await dbService.deleteOrder(orderId);
 
-    // Publish event to the warehouse service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "warehouse_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_deleted",
-                    job: "delete_order"
-                },
-                data: orderId
-            })
-        ),
-        { persistent: true }
-    );
+    // Set the data to send
+    const dataToSend = {
+        orderId: orderId
+    }
 
     // Publish event to the payment service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "payment_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_deleted",
-                    job: "delete_order"
-                },
-                data: orderId
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "payment_service", "order_deleted", "delete_order", dataToSend);
 
     // Publish event to the costumer service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "costumer_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_deleted",
-                    job: "delete_order"
-                },
-                data: orderId
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "costumer_service", "order_deleted", "delete_order", dataToSend);
 
     // Publish event to the warehouse service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "warehouse_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "order_deleted",
-                    job: "delete_order"
-                },
-                data: orderId
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "warehouse_service", "order_deleted", "delete_order", dataToSend);
+
+    // Publish event to the shipment service
+    await publishMessage("local_exchange", "shipment_service", "order_deleted", "delete_order", dataToSend);
 
     // Add the event to history
     const date = new Date()
@@ -523,4 +274,138 @@ async function createChannel(queueName, sourceName, pattern) {
     // Bind the queue to the channel
     await rabbitmqChannel.bindQueue(queueName, sourceName, pattern);
     console.log(`[BusManager] Bound to routing key: ` + queueName);
+}
+
+// Publish a message to another channel
+async function publishMessage(exchange, recivingChannel, event, job, data) {
+    rabbitmqChannel.publish(
+        exchange,
+        recivingChannel,
+        Buffer.from(
+            JSON.stringify({
+                meta: {
+                    uuid: crypto.randomUUID(),
+                    event: event,
+                    job: job
+                },
+                data: data
+            })
+        ),
+        { persistent: true }
+    );
+}
+
+// Handel incomming messages
+async function handelMessage(job) {
+    // Handle update product
+    if (job === "update_product") {
+        // Update the product
+        let product = dbService.updateProduct(meta.data);
+
+        // Add the event to history
+        const date = new Date()
+        const log = dbService.createEventLog({
+            name: `Update product at ${date}`,
+            description: `Update the product with id ${meta.data.productId} at ${date}`,
+            date: date
+        })
+
+        console.log(`Updated product: ${product}`)
+    }
+
+    // Handle update costumer
+    if (job === "update_costumer") {
+        // Update the costumer
+        let costumer = dbService.updateCostumer(meta.data);
+
+        // Add the event to history
+        const date = new Date()
+        const log = dbService.createEventLog({
+            name: `Update costumer at ${date}`,
+            description: `Update the costumer with id ${meta.data.costumerId} at ${date}`,
+            date: date
+        })
+
+        console.log(`Updated costumer: ${costumer}`)
+    }
+
+    // Handle add product
+    if (job === "add_product") {
+        // Create a product
+        const product = await dbService.createProduct(json.data);
+
+        // Add the event to history
+        const date = new Date()
+        const log = dbService.createEventLog({
+            name: `Created product at ${date}`,
+            description: `Created the product with id ${product.productId} at ${date}`,
+            date: date
+        })
+
+        console.log(`[OrderService] Created product with id: ${product.productId}`)
+    }
+
+    // Handle add costumer
+    if (job === "add_costumer") {
+        // Create a costumer
+        const costumer = await dbService.createCostumer(json.data);
+
+        // Add the event to history
+        const date = new Date()
+        const log = dbService.createEventLog({
+            name: `Created costumer at ${date}`,
+            description: `Created the costumer with id ${costumer.costumerId} at ${date}`,
+            date: date
+        })
+
+        console.log(`[OrderService] Created costumer with id: ${costumer.costumerId}`)
+    }
+
+    // Handle costumer deletion
+    if (job === "delete_costumer") {
+        //Delete a costumer
+        const deletedCostumer = dbService.deleteCostumer(json.data);
+
+        // Add the event to history
+        const date = new Date()
+        const log = dbService.createEventLog({
+            name: `Delete costumer at ${date}`,
+            description: `Delete the costumer with id ${json.data} at ${date}`,
+            date: date
+        })
+
+        console.log(`[OrderService] Deleted costumer with id: ${json.data}`)
+    }
+
+    // Handle product deletion
+    if (job === "delete_product") {
+        //Delete a product
+        const deletedProduct = dbService.deleteProduct(json.data);
+
+        // Add the event to history
+        const date = new Date()
+        const log = dbService.createEventLog({
+            name: `Delete product at ${date}`,
+            description: `Delete the product with id ${json.data} at ${date}`,
+            date: date
+        })
+
+        console.log(`[OrderService] Deleted product with id: ${json.data}`)
+    }
+
+    // Handle update the order status
+    if (job === "update_status") {
+        // Update the order status
+        const order = dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
+
+        // Add the event to history
+        const date = new Date()
+        const log = await dbService.createEventLog({
+            name: `Update order status at ${date}`,
+            description: `Update the order status of the order with id ${order.orderId} at ${date}`,
+            date: date
+        })
+
+        console.log(`[OrderService] Updated order status: ${order}`)
+    }
 }
