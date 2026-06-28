@@ -13,7 +13,16 @@ module.exports = {
         if (!product || !product.name) {
             throw new Error("Product name is required");
         }
-        return db.createProduct(product);
+
+        if (!product.supplierId) {
+            throw new Error("Product must be assigned to an existing supplier (supplierId is required)");
+        }
+
+        if (!db.supplierExists(product.supplierId)) {
+            throw new Error(`Supplier id ${product.supplierId} does not exist`);
+        }
+
+        return db.createProduct(product, product.supplierId);
     },
 
     async createSupplier(supplier) {

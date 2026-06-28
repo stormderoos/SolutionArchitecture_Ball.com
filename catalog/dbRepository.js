@@ -4,7 +4,15 @@ const supplierProducts = [];
 let nextProductId = 1;
 let nextSupplierId = 1;
 
-function createProduct(product) {
+function supplierExists(supplierId) {
+    return suppliers.some((supplier) => supplier.supplierId === Number(supplierId));
+}
+
+function createProduct(product, supplierId) {
+    if (!supplierExists(supplierId)) {
+        throw new Error(`Supplier id ${supplierId} does not exist`);
+    }
+
     const newProduct = {
         productId: nextProductId++,
         name: product.name,
@@ -12,6 +20,7 @@ function createProduct(product) {
         weight: Number(product.weight) || 0
     };
     products.push(newProduct);
+    supplierProducts.push({ supplierId: Number(supplierId), productId: newProduct.productId });
     return newProduct;
 }
 
@@ -63,13 +72,13 @@ function seedData() {
         return;
     }
 
-    const ball = createProduct({ name: "Ball", price: 9.99, weight: 0.25 });
-    const football = createProduct({ name: "Football", price: 12.99, weight: 0.45 });
-    const waterBottle = createProduct({ name: "Water bottle", price: 4.75, weight: 0.30 });
+    const ballSupply = createSupplier({ name: "Ball Supply Co." });
+    const sportingGoods = createSupplier({ name: "Sporting Goods BV" });
+    const hydrationPartners = createSupplier({ name: "Hydration Partners" });
 
-    createSupplier({ name: "Ball Supply Co." }, [ball.productId, football.productId]);
-    createSupplier({ name: "Sporting Goods BV" }, [football.productId]);
-    createSupplier({ name: "Hydration Partners" }, [waterBottle.productId]);
+    createProduct({ name: "Ball", price: 9.99, weight: 0.25 }, ballSupply.supplierId);
+    createProduct({ name: "Football", price: 12.99, weight: 0.45 }, ballSupply.supplierId);
+    createProduct({ name: "Water bottle", price: 4.75, weight: 0.30 }, hydrationPartners.supplierId);
 }
 
 seedData();
@@ -81,5 +90,6 @@ module.exports = {
     createSupplier,
     getAllSuppliersWithProducts,
     getAllSuppliers,
-    getSupplierProducts
+    getSupplierProducts,
+    supplierExists
 };
