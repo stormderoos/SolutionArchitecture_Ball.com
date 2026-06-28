@@ -13,14 +13,14 @@ services:
             retries: 5
 
     mysql:
-      image: mysql:8.0
-      environment:
-        MYSQL_ROOT_PASSWORD: root
-      ports:
-        - "3306:3306"
-      volumes:
-        - mysql_data:/var/lib/mysql
-        - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+        image: mysql:8.0
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+        ports:
+            - "3307:3306"
+        volumes:
+            - mysql_data:/var/lib/mysql
+            - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
     order:
         build:
@@ -32,7 +32,7 @@ services:
             DB_PASS: root
             DB_NAME: OrderServiceDB
         volumes:
-          - ./customer_data.csv:/app/customer_data.csv
+            - ./customer_data.csv:/app/customer_data.csv
         restart: unless-stopped
         ports:
             - "5000:5000"
@@ -54,6 +54,18 @@ services:
             rabbitmq:
                 condition: service_healthy
 
+    catalog:
+        build:
+            context: ./catalog
+        environment:
+            RABBITMQ_URL: amqp://rabbitmq
+        restart: unless-stopped
+        ports:
+            - "5002:5000"
+        depends_on:
+            rabbitmq:
+                condition: service_healthy
+
 volumes:
-  rabbitmq_data:
-  mysql_data:
+    rabbitmq_data:
+    mysql_data:
