@@ -86,6 +86,27 @@ INSERT INTO Product (name, description, price, manufacturer, amountStored)
 SELECT 'Laptop', 'High-end gaming laptop', 1299.99, 'TechCorp', 50
 WHERE NOT EXISTS (SELECT 1 FROM Product);
 
+INSERT INTO Product (name, description, price, manufacturer, amountStored)
+SELECT 'Football', 'A orange football', 3.25, 'Nike', 100;
+
+INSERT INTO Product (name, description, price, manufacturer, amountStored)
+SELECT 'Marker', 'A black permanent marker', 1, 'Hema', 500;
+
 INSERT INTO PickList (pickListId, productId, amount)
 SELECT 1, 1, 2
 WHERE NOT EXISTS (SELECT 1 FROM PickList);
+
+INSERT INTO PickList (pickListId, productId, amount)
+SELECT 1, 2, 5;
+
+INSERT INTO PickList (pickListId, productId, amount)
+SELECT 1, 3, 10;
+
+INSERT INTO PickList (pickListId, productId, amount)
+SELECT 2, 1, 1;
+
+INSERT INTO PickList (pickListId, productId, amount)
+SELECT 2, 2, 3;
+
+INSERT INTO PickList (pickListId, productId, amount)
+SELECT 2, 3, 10;
