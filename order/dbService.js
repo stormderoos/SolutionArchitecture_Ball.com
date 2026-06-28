@@ -42,12 +42,14 @@ module.exports = {
     async updateOrderStatus(orderId, orderStatus) {
         try {
             // Get the order
-            let order = await dbService.getOrder(orderId);
+            let order = await this.getOrder(orderId);
 
             // Set the order status to the new status
             order.orderStatus = orderStatus;
 
-            order = updateOrder(order);
+            order = await db.updateOrder(order);
+
+            return order;
         } catch (error) {
             console.error("Error updating order:", error);
             throw error;
@@ -61,7 +63,7 @@ module.exports = {
             const oredrProducts = db.getOrderProductByOrderId(orderId);
 
             // Delete order products
-            for (op in orderProducts) {
+            for (const op of orderProducts) {
                 db.deleteOrderProduct(op.orderId, op.productId);
             }
 
@@ -100,7 +102,7 @@ module.exports = {
             const orders = db.getOrdersByCustomerId(customerId);
 
             // Delete orders
-            for (o in orders) {
+            for (const o of orders) {
                 db.deleteOrder(o.orderId);
             }
 
@@ -149,7 +151,7 @@ module.exports = {
             const oredrProducts = db.getOrderProductByProductId(productId);
 
             // Delete order products
-            for (op in orderProducts) {
+            for (const op of orderProducts) {
                 db.deleteOrderProduct(op.orderId, op.productId);
             }
 
@@ -177,12 +179,12 @@ module.exports = {
     async updateOrderProducts(orderId, orderProducts) {
         try {
             // Update order products
-            for (op in orderProducts) {
+            for (const op of orderProducts) {
                 // Get the product order connection
                 const orderProduct = db.getOrderProduct(orderId, op.productId);
 
                 // Update or create the order product
-                if (orderProduct !== null) {
+                if (orderProduct === null) {
                     db.createOrderProduct(orderId, op.productId, op.amount);
                 } else {
                     db.updateOrderProduct(orderId, op.productId, op.amount);

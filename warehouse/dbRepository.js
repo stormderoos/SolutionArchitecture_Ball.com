@@ -3,12 +3,18 @@ const db = require("./db");
 module.exports = {
     // Database functions
     // Create a pick list
-    async createPickList(pickList) {
+    async createPickList(orderId, productId, amount) {
         // Create a pick list
         const [result] = await db.query(
-            "INSERT INTO PickList (pickListId, productId, amount) VALUES (?, ?)",
-            [pickList.pickListId, pickList.productId, pickList.amount,]
+            "INSERT INTO PickList (orderId, productId, amount) VALUES (?, ?, ?)",
+            [orderId, productId, amount,]
         );
+
+        const pickList = {
+            orderId: orderId,
+            productId: productId,
+            amount: amount
+        }
 
         return pickList;
     },

@@ -51,10 +51,10 @@ CREATE TABLE Product (
 );
 
 CREATE TABLE PickList (
-    pickListId INT,
+    orderId INT,
     productId INT,
     amount INT,
-    PRIMARY KEY (pickListId, productId),
+    PRIMARY KEY (orderId, productId),
     FOREIGN KEY (productId) REFERENCES Product(productId)
 );
 
@@ -65,20 +65,50 @@ INSERT INTO Customer (address, zipCode, email)
 SELECT 'Rijngraafstraat 66', '4811DL', 'mart@hotmail.com'
 WHERE NOT EXISTS (SELECT 1 FROM Customer);
 
+INSERT INTO Customer (address, zipCode, email)
+SELECT 'Dokterblondeelhof 4', '3849KG', 'tom@hotmail.com';
+
+INSERT INTO Customer (address, zipCode, email)
+SELECT 'Herardlaan', '4578FL', 'margot@hotmail.com';
+
 -- Seed Product table
 INSERT INTO Product (name, description)
 SELECT 'Laptop', 'High-end gaming laptop'
 WHERE NOT EXISTS (SELECT 1 FROM Product);
+
+INSERT INTO Product (name, description)
+SELECT 'Football', 'A orange football';
+
+INSERT INTO Product (name, description)
+SELECT 'Marker', 'A black permanent marker';
 
 -- Seed Orders table
 INSERT INTO Orders (orderStatus, customerId)
 SELECT 'Order created', 1
 WHERE NOT EXISTS (SELECT 1 FROM Orders);
 
+INSERT INTO Orders (orderStatus, customerId)
+SELECT 'Order created', 2;
+
 -- Seed OrderProduct table
 INSERT INTO OrderProduct (orderId, productId, amount)
 SELECT 1, 1, 2
 WHERE NOT EXISTS (SELECT 1 FROM OrderProduct);
+
+INSERT INTO OrderProduct (orderId, productId, amount)
+SELECT 1, 2, 5;
+
+INSERT INTO OrderProduct (orderId, productId, amount)
+SELECT 1, 3, 10;
+
+INSERT INTO OrderProduct (orderId, productId, amount)
+SELECT 2, 1, 1;
+
+INSERT INTO OrderProduct (orderId, productId, amount)
+SELECT 2, 2, 3;
+
+INSERT INTO OrderProduct (orderId, productId, amount)
+SELECT 2, 3, 10;
 
 USE WarehouseServiceDB;
 
@@ -92,21 +122,21 @@ SELECT 'Football', 'A orange football', 3.25, 'Nike', 100;
 INSERT INTO Product (name, description, price, manufacturer, amountStored)
 SELECT 'Marker', 'A black permanent marker', 1, 'Hema', 500;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 1, 1, 2
 WHERE NOT EXISTS (SELECT 1 FROM PickList);
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 1, 2, 5;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 1, 3, 10;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 2, 1, 1;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 2, 2, 3;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 2, 3, 10;

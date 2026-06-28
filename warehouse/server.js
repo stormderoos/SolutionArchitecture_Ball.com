@@ -50,7 +50,7 @@ const moveProduct = async (orderId, productsToPick) => {
                     job: "update_status"
                 },
                 data: {
-                    orderId: order.orderId,
+                    orderId: orderId,
                     orderStatus: "Picking products"
                 }
             })

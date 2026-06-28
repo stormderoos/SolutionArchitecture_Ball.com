@@ -19,7 +19,7 @@ const run = async () => {
         console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
 
         // Handel incomming messages
-        await handelMessage(json.meta.job);
+        await handelMessage(json);
 
         // Remove the message from the queue
         rabbitmqChannel.ack(message);
@@ -224,9 +224,6 @@ const deleteOrder = async (orderId) => {
     // Publish event to the costumer service
     await publishMessage("local_exchange", "costumer_service", "order_deleted", "delete_order", dataToSend);
 
-    // Publish event to the warehouse service
-    await publishMessage("local_exchange", "warehouse_service", "order_deleted", "delete_order", dataToSend);
-
     // Publish event to the shipment service
     await publishMessage("local_exchange", "shipment_service", "order_deleted", "delete_order", dataToSend);
 
@@ -296,17 +293,17 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
 }
 
 // Handel incomming messages
-async function handelMessage(job) {
+async function handelMessage(json) {
     // Handle update product
-    if (job === "update_product") {
+    if (json.meta.job === "update_product") {
         // Update the product
-        let product = dbService.updateProduct(meta.data);
+        let product = await dbService.updateProduct(json.data);
 
         // Add the event to history
         const date = new Date()
-        const log = dbService.createEventLog({
+        const log = await dbService.createEventLog({
             name: `Update product at ${date}`,
-            description: `Update the product with id ${meta.data.productId} at ${date}`,
+            description: `Update the product with id ${json.data.productId} at ${date}`,
             date: date
         })
 
@@ -314,15 +311,15 @@ async function handelMessage(job) {
     }
 
     // Handle update costumer
-    if (job === "update_costumer") {
+    if (json.meta.job === "update_costumer") {
         // Update the costumer
-        let costumer = dbService.updateCostumer(meta.data);
+        let costumer = await dbService.updateCostumer(json.data);
 
         // Add the event to history
         const date = new Date()
-        const log = dbService.createEventLog({
+        const log = await dbService.createEventLog({
             name: `Update costumer at ${date}`,
-            description: `Update the costumer with id ${meta.data.costumerId} at ${date}`,
+            description: `Update the costumer with id ${json.data.costumerId} at ${date}`,
             date: date
         })
 
@@ -330,13 +327,13 @@ async function handelMessage(job) {
     }
 
     // Handle add product
-    if (job === "add_product") {
+    if (json.meta.job === "add_product") {
         // Create a product
         const product = await dbService.createProduct(json.data);
 
         // Add the event to history
         const date = new Date()
-        const log = dbService.createEventLog({
+        const log = await dbService.createEventLog({
             name: `Created product at ${date}`,
             description: `Created the product with id ${product.productId} at ${date}`,
             date: date
@@ -346,13 +343,13 @@ async function handelMessage(job) {
     }
 
     // Handle add costumer
-    if (job === "add_costumer") {
+    if (json.meta.job === "add_costumer") {
         // Create a costumer
         const costumer = await dbService.createCostumer(json.data);
 
         // Add the event to history
         const date = new Date()
-        const log = dbService.createEventLog({
+        const log = await dbService.createEventLog({
             name: `Created costumer at ${date}`,
             description: `Created the costumer with id ${costumer.costumerId} at ${date}`,
             date: date
@@ -362,13 +359,13 @@ async function handelMessage(job) {
     }
 
     // Handle costumer deletion
-    if (job === "delete_costumer") {
+    if (json.meta.job === "delete_costumer") {
         //Delete a costumer
-        const deletedCostumer = dbService.deleteCostumer(json.data);
+        const deletedCostumer = await dbService.deleteCostumer(json.data);
 
         // Add the event to history
         const date = new Date()
-        const log = dbService.createEventLog({
+        const log = await dbService.createEventLog({
             name: `Delete costumer at ${date}`,
             description: `Delete the costumer with id ${json.data} at ${date}`,
             date: date
@@ -378,13 +375,13 @@ async function handelMessage(job) {
     }
 
     // Handle product deletion
-    if (job === "delete_product") {
+    if (json.meta.job === "delete_product") {
         //Delete a product
-        const deletedProduct = dbService.deleteProduct(json.data);
+        const deletedProduct = await dbService.deleteProduct(json.data);
 
         // Add the event to history
         const date = new Date()
-        const log = dbService.createEventLog({
+        const log = await dbService.createEventLog({
             name: `Delete product at ${date}`,
             description: `Delete the product with id ${json.data} at ${date}`,
             date: date
@@ -394,9 +391,9 @@ async function handelMessage(job) {
     }
 
     // Handle update the order status
-    if (job === "update_status") {
+    if (json.meta.job === "update_status") {
         // Update the order status
-        const order = dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
+        const order = await dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
 
         // Add the event to history
         const date = new Date()

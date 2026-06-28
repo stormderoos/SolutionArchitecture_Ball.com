@@ -179,6 +179,17 @@ module.exports = {
         return true;
     },
 
+    // Get order products connection
+    async getOrderProduct(orderId, productId) {
+        // Get oreder product
+        const [rows] = await db.query(
+            "SELECT * FROM OrderProduct WHERE orderId = ? AND productId = ?",
+            [orderId, productId]
+        );
+
+        return rows[0];
+    },
+
     // Get order products connection by order id
     async getOrderProductsByOrderId(orderId) {
         // Get oreder product
