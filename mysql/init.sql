@@ -55,7 +55,6 @@ CREATE TABLE PickList (
     productId INT,
     amount INT,
     PRIMARY KEY (pickListId, productId),
-    FOREIGN KEY (pickListId) REFERENCES PickList(pickListId),
     FOREIGN KEY (productId) REFERENCES Product(productId)
 );
 
