@@ -54,6 +54,18 @@ services:
             rabbitmq:
                 condition: service_healthy
 
+    payment:
+        build:
+            context: ./payment
+        environment:
+            RABBITMQ_URL: amqp://rabbitmq
+            DB_HOST: mysql
+            DB_USER: root
+            DB_PASS: root
+            DB_NAME: PaymentServiceDB
+        restart: unless-stopped
+        ports:
+            - "5001:5001"
     catalog:
         build:
             context: ./catalog

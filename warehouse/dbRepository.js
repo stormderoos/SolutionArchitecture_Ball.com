@@ -2,15 +2,15 @@ const db = require("./db");
 
 module.exports = {
     // Database functions
-    // Create a pick list
-    async createPickList(pickList) {
-        // Create a pick list
-        const [result] = await db.query(
-            "INSERT INTO PickList (pickListId, productId, amount) VALUES (?, ?)",
-            [pickList.pickListId, pickList.productId, pickList.amount,]
+    // Create a single pick list item (one product row of a pick list)
+    async createPickListItem(pickListId, productId, amount) {
+        // Insert the pick list row
+        await db.query(
+            "INSERT INTO PickList (pickListId, productId, amount) VALUES (?, ?, ?)",
+            [pickListId, productId, amount]
         );
 
-        return pickList;
+        return { pickListId, productId, amount };
     },
     // Get all pick lists
     async getPickLists() {

@@ -42,12 +42,14 @@ module.exports = {
     async updateOrderStatus(orderId, orderStatus) {
         try {
             // Get the order
-            let order = await dbService.getOrder(orderId);
+            let order = await db.getOrder(orderId);
 
             // Set the order status to the new status
             order.orderStatus = orderStatus;
 
-            order = updateOrder(order);
+            order = await db.updateOrder(order);
+
+            return order;
         } catch (error) {
             console.error("Error updating order:", error);
             throw error;

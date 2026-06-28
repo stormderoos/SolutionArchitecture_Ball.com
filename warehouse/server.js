@@ -17,13 +17,18 @@ const run = async () => {
             `[WarehouseService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`
         );
 
-        // Handle order creation
-        if (json.meta.job === "move_product") {
-            moveProduct(json.data.order.orderId, json.data.products)
+        try {
+            // Handle order creation
+            if (json.meta.job === "move_product") {
+                await moveProduct(json.data.order.orderId, json.data.products);
+            }
+        } catch (error) {
+            // Log the error but do not crash the process or requeue forever (no poison-message loop)
+            console.error(`[WarehouseService] Error handling message ${json.meta.uuid}:`, error);
+        } finally {
+            // Always remove the message from the queue
+            rabbitmqChannel.ack(message);
         }
-
-        // Remove the message from the queue
-        rabbitmqChannel.ack(message);
     });
 };
 
@@ -36,7 +41,7 @@ const moveProduct = async (orderId, productsToPick) => {
     console.log(`[WarehouseService] Moving product...`);
 
     //Create a pick list to move the products to pick
-    dbService.createPickList(orderId, productsToPick);
+    await dbService.createPickList(orderId, productsToPick);
 
     // Publish event to the order service
     rabbitmqChannel.publish(
@@ -50,7 +55,7 @@ const moveProduct = async (orderId, productsToPick) => {
                     job: "update_status"
                 },
                 data: {
-                    orderId: order.orderId,
+                    orderId: orderId,
                     orderStatus: "Picking products"
                 }
             })
@@ -63,8 +68,17 @@ const moveProduct = async (orderId, productsToPick) => {
 
 // Create a new channel
 async function createChannel(queueName, sourceName, pattern) {
-    // Connect to rabbitMQ
-    const connection = await amqp.connect(rabbitmqUrl);
+    // Connect to rabbitMQ (retry until available, so we don't crash on a slow broker startup)
+    let connection;
+    for (let attempt = 1; ; attempt++) {
+        try {
+            connection = await amqp.connect(rabbitmqUrl);
+            break;
+        } catch (err) {
+            console.log(`[BusManager] RabbitMQ not ready (attempt ${attempt}), retrying in 3s...`);
+            await new Promise((r) => setTimeout(r, 3000));
+        }
+    }
     console.log(`[BusManager] Connected to RabbitMQ`);
 
     // Create a channel
