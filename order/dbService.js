@@ -4,8 +4,10 @@ module.exports = {
     // Create an order
     async createOrder(order, orderProducts) {
         try {
+            // Create an order
             const createdOrder = await db.createOrder(order);
 
+            // Create the order product connections
             for (const op of orderProducts) {
                 await db.createOrderProduct(createdOrder.orderId, op.productId, op.amount);
             }
@@ -20,8 +22,17 @@ module.exports = {
     // Update an order
     async updateOrder(order, orderProducts) {
         try {
-            await this.updateOrderProducts(order.orderId, orderProducts);
-            return await db.updateOrder(order);
+            // Update order products and the order
+            const updatedOrderProducts = await this.updateOrderProducts(order.orderId, orderProducts);
+            const updatedOrder = await db.updateOrder(order);
+
+            // The data to return
+            dataToReturn = {
+                order: updatedOrder,
+                orderProducts: updatedOrderProducts
+            }
+
+            return dataToReturn;
         } catch (error) {
             console.error("Error updating order:", error);
             throw error;
@@ -60,7 +71,7 @@ module.exports = {
     async deleteOrder(orderId) {
         try {
             // Get the product order connections
-            const oredrProducts = db.getOrderProductByOrderId(orderId);
+            const orderProducts = await db.getOrderProductsByOrderId(orderId);
 
             // Delete order products
             for (const op of orderProducts) {
@@ -148,14 +159,12 @@ module.exports = {
     async deleteProduct(productId) {
         try {
             // Get the product order connections
-            const oredrProducts = db.getOrderProductByProductId(productId);
+            const oredrProducts = db.getOrderProductsByOrderId(productId);
 
             // Delete order products
             for (const op of orderProducts) {
                 db.deleteOrderProduct(op.orderId, op.productId);
             }
-
-            // Delete an order
 
             // Delete a product
             return await db.deleteProduct(productId);
@@ -190,6 +199,8 @@ module.exports = {
                     db.updateOrderProduct(orderId, op.productId, op.amount);
                 }
             }
+
+            return orderProducts;
         } catch (error) {
             console.error("Error deleting product:", error);
             throw error;

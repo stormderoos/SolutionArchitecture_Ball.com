@@ -55,7 +55,7 @@ app.use((req, res, next) => {
 
 // Api routes
 // Create an order
-app.post("/order/create", async (req, res) => {
+app.post("/order", async (req, res) => {
     try {
         console.log("[OrderService] Order create: ", req.body);
         const result = await createOrder(req.body);
@@ -66,7 +66,7 @@ app.post("/order/create", async (req, res) => {
 });
 
 // Update an order
-app.put("/order/update", async (req, res) => {
+app.put("/order", async (req, res) => {
     try {
         console.log("[OrderService] Order update: ", req.body);
         const result = await updateOrder(req.body);
@@ -102,7 +102,7 @@ app.delete("/order/:id", async (req, res) => {
 app.get("/event", async (req, res) => {
     try {
         console.log("[OrderService] Event logs get all");
-        const result = await dbService.getEventLog();
+        const result = await dbService.getEventLogs();
         res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -176,12 +176,10 @@ const updateOrder = async (request) => {
     const updatedOrder = await dbService.updateOrder(request.order, request.products)
 
     // Set the data to send
-    const dataToSend = {
-        updatedOrder: updatedOrder
-    }
+    const dataToSend = updatedOrder
 
     // Publish event to the warehouse service
-    await publishMessage("local_exchange", "warehouse_service", "order_updated", "update_order", dataToSend);
+    await publishMessage("local_exchange", "warehouse_service", "order_updated", "update_pick_list", dataToSend);
 
     // Publish event to the payment service
     await publishMessage("local_exchange", "payment_service", "order_updated", "update_order", dataToSend);
@@ -207,9 +205,6 @@ const updateOrder = async (request) => {
 
 // Delete a order
 const deleteOrder = async (orderId) => {
-    // Handle order delete
-    console.log(`[OrderService] Deleteing order ${orderId}`);
-
     // Delte the order from the database
     deletedOrder = await dbService.deleteOrder(orderId);
 

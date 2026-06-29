@@ -4,16 +4,22 @@ module.exports = {
     // Database functions
     // Create a order
     async createOrder(order) {
+        const orderStatus = "Order created";
+
         // Creare the order
         const [result] = await db.query(
             "INSERT INTO Orders (orderStatus, customerId) VALUES (?, ?)",
-            ["Order created", order.customerId]
+            [orderStatus, order.customerId]
         );
 
-        // Add the generated orderId to the order object
-        order.orderId = result.insertId;
+        // Full created order to return
+        data = {
+            orderId: result.insertId,
+            orderStatus: orderStatus,
+            customerId: order.customerId
+        }
 
-        return order;
+        return data;
     },
 
     // Update a order
@@ -161,7 +167,7 @@ module.exports = {
 
     // Update order product connection
     async updateOrderProduct(orderId, productId, amount) {
-        // Create oreder product
+        // Update oreder product
         const [result] = await db.query(
             "UPDATE OrderProduct SET amount = ? WHERE productId = ? AND orderId = ?",
             [amount, productId, orderId]
@@ -192,7 +198,7 @@ module.exports = {
 
     // Get order products connection by order id
     async getOrderProductsByOrderId(orderId) {
-        // Get oreder product
+        // Get order products
         const [rows] = await db.query(
             "SELECT * FROM OrderProduct WHERE orderId = ?",
             [orderId]
@@ -230,8 +236,7 @@ module.exports = {
     async getEventLogs() {
         // Get all event logs
         const [rows] = await db.query(
-            "SELECT * FROM EventLogs",
-            [eventLogId]
+            "SELECT * FROM EventLogs"
         );
 
         return rows;

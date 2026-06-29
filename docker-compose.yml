@@ -50,6 +50,8 @@ services:
             DB_PASS: root
             DB_NAME: WarehouseServiceDB
         restart: unless-stopped
+        ports:
+            - "5100:5100"
         depends_on:
             rabbitmq:
                 condition: service_healthy

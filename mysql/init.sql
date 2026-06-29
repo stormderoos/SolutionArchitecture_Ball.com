@@ -58,6 +58,12 @@ CREATE TABLE PickList (
     FOREIGN KEY (productId) REFERENCES Product(productId)
 );
 
+CREATE TABLE Package (
+    packageId INT AUTO_INCREMENT PRIMARY KEY,
+    orderId INT,
+    packageStatus VARCHAR(50)
+);
+
 USE OrderServiceDB;
 
 -- Seed Customer table
@@ -84,11 +90,11 @@ SELECT 'Marker', 'A black permanent marker';
 
 -- Seed Orders table
 INSERT INTO Orders (orderStatus, customerId)
-SELECT 'Order created', 1
+SELECT 'Picking prodcuts', 1
 WHERE NOT EXISTS (SELECT 1 FROM Orders);
 
 INSERT INTO Orders (orderStatus, customerId)
-SELECT 'Order created', 2;
+SELECT 'Picking prodcuts', 2;
 
 -- Seed OrderProduct table
 INSERT INTO OrderProduct (orderId, productId, amount)
