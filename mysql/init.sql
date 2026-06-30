@@ -51,10 +51,10 @@ CREATE TABLE Product (
 );
 
 CREATE TABLE PickList (
-    orderId INT,
+    pickListId INT,
     productId INT,
     amount INT,
-    PRIMARY KEY (orderId, productId),
+    PRIMARY KEY (pickListId, productId),
     FOREIGN KEY (productId) REFERENCES Product(productId)
 );
 
