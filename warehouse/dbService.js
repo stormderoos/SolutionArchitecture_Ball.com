@@ -18,4 +18,28 @@ module.exports = {
             throw error;
         }
     },
+
+    // Update pick list
+    async updatePickList(orderId, productsToPick) {
+        let picks = [];
+
+        for (const ptp of productsToPick) {
+            // Get the product to pick
+            const product = await db.getPickList(orderId, ptp.productId);
+
+            // Create or update the product to pick
+            if (product === null) {
+                picks.push(await db.createPickList(orderId, ptp.productId, ptp.amount));
+            } else {
+                picks.push(await db.updatePickList(orderId, ptp.productId, ptp.amount));
+            }
+        }
+
+        return picks;
+    },
+
+    // Create a package
+    async createPackage(orderId) {
+        return db.createPackage(orderId);
+    }
 };

@@ -4,8 +4,10 @@ module.exports = {
     // Create an order
     async createOrder(order, orderProducts) {
         try {
+            // Create an order
             const createdOrder = await db.createOrder(order);
 
+            // Create the order product connections
             for (const op of orderProducts) {
                 await db.createOrderProduct(createdOrder.orderId, op.productId, op.amount);
             }
@@ -20,8 +22,17 @@ module.exports = {
     // Update an order
     async updateOrder(order, orderProducts) {
         try {
-            await this.updateOrderProducts(order.orderId, orderProducts);
-            return await db.updateOrder(order);
+            // Update order products and the order
+            const updatedOrderProducts = await this.updateOrderProducts(order.orderId, orderProducts);
+            const updatedOrder = await db.updateOrder(order);
+
+            // The data to return
+            dataToReturn = {
+                order: updatedOrder,
+                orderProducts: updatedOrderProducts
+            }
+
+            return dataToReturn;
         } catch (error) {
             console.error("Error updating order:", error);
             throw error;
@@ -42,7 +53,7 @@ module.exports = {
     async updateOrderStatus(orderId, orderStatus) {
         try {
             // Get the order
-            let order = await db.getOrder(orderId);
+            let order = await this.getOrder(orderId);
 
             // Set the order status to the new status
             order.orderStatus = orderStatus;
@@ -60,10 +71,10 @@ module.exports = {
     async deleteOrder(orderId) {
         try {
             // Get the product order connections
-            const oredrProducts = db.getOrderProductByOrderId(orderId);
+            const orderProducts = await db.getOrderProductsByOrderId(orderId);
 
             // Delete order products
-            for (op in orderProducts) {
+            for (const op of orderProducts) {
                 db.deleteOrderProduct(op.orderId, op.productId);
             }
 
@@ -102,7 +113,7 @@ module.exports = {
             const orders = db.getOrdersByCustomerId(customerId);
 
             // Delete orders
-            for (o in orders) {
+            for (const o of orders) {
                 db.deleteOrder(o.orderId);
             }
 
@@ -148,14 +159,12 @@ module.exports = {
     async deleteProduct(productId) {
         try {
             // Get the product order connections
-            const oredrProducts = db.getOrderProductByProductId(productId);
+            const oredrProducts = db.getOrderProductsByOrderId(productId);
 
             // Delete order products
-            for (op in orderProducts) {
+            for (const op of orderProducts) {
                 db.deleteOrderProduct(op.orderId, op.productId);
             }
-
-            // Delete an order
 
             // Delete a product
             return await db.deleteProduct(productId);
@@ -179,17 +188,19 @@ module.exports = {
     async updateOrderProducts(orderId, orderProducts) {
         try {
             // Update order products
-            for (op in orderProducts) {
+            for (const op of orderProducts) {
                 // Get the product order connection
                 const orderProduct = db.getOrderProduct(orderId, op.productId);
 
                 // Update or create the order product
-                if (orderProduct !== null) {
+                if (orderProduct === null) {
                     db.createOrderProduct(orderId, op.productId, op.amount);
                 } else {
                     db.updateOrderProduct(orderId, op.productId, op.amount);
                 }
             }
+
+            return orderProducts;
         } catch (error) {
             console.error("Error deleting product:", error);
             throw error;
