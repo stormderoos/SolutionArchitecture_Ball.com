@@ -24,26 +24,26 @@ module.exports = {
     },
 
     // Get one pick list
-    async getPickList(orderId, productId) {
+    async getPickList(pickListId, productId) {
         // Get all pick lists
         const [rows] = await db.query(
-            "SELECT * FROM PickList WHERE productId = ? AND orderId = ?",
-            [productId, orderId]
+            "SELECT * FROM PickList WHERE productId = ? AND pickListId = ?",
+            [productId, pickListId]
         );
 
         return rows[0];
     },
 
     // Update pick list
-    async updatePickList(orderId, productId, amount) {
+    async updatePickList(pickListId, productId, amount) {
         const [result] = await db.query(
-            "UPDATE PickList SET amount = ? WHERE productId = ? AND orderId = ?",
-            [amount, productId, orderId]
+            "UPDATE PickList SET amount = ? WHERE productId = ? AND pickListId = ?",
+            [amount, productId, pickListId]
         );
 
         // Updated pick list to return
         const data = {
-            orderId: orderId,
+            pickListId: pickListId,
             productId: productId,
             amount: amount
         }

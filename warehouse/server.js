@@ -123,7 +123,7 @@ const createPackage = async (orderId) => {
     console.log(`[WarehouseService] Creating package...`);
 
     //Create a package ready for shipment
-    await dbService.createPackage(orderId);
+    const package = await dbService.createPackage(orderId);
 
     // Publish event to the order service
     rabbitmqChannel.publish(
@@ -166,6 +166,8 @@ const createPackage = async (orderId) => {
     );
 
     console.log(`[WarehouseService] Package created and event published`);
+
+    return package;
 }
 
 // Create a new channel

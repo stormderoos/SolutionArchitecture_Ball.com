@@ -243,7 +243,7 @@ const getOrder = async (orderId) => {
     console.log(`[OrderService] Getting order ${orderId}`);
 
     // Get the order from the database
-    const order = dbService.getOrder(orderId);
+    const order = await dbService.getOrder(orderId);
 
     console.log(`Order: ${order}`);
 

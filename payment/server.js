@@ -20,13 +20,13 @@ const run = async () => {
 
         try {
             // Handle incoming jobs (sent by the order service)
-            if (json.meta.job === "start_payment") {
-                await startPayment(json.data.order, json.data.products);
-            }
+            // if (json.meta.job === "start_payment") {
+            //     await startPayment(json.data.order, json.data.products);
+            // }
 
-            if (json.meta.job === "delete_order") {
-                await deletePayment(json.data.orderId);
-            }
+            // if (json.meta.job === "delete_order") {
+            //     await deletePayment(json.data.orderId);
+            // }
         } catch (error) {
             // Log the error but do not crash the process or requeue forever (no poison-message loop)
             console.error(`[PaymentService] Error handling message ${json.meta.uuid}:`, error);
