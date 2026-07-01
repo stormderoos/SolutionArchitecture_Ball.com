@@ -1,11 +1,9 @@
 services:
     rabbitmq:
-        image: rabbitmq:management-alpine
+        image: rabbitmq:3.13-management
         ports:
             - "5672:5672"
             - "15672:15672"
-        volumes:
-            - rabbitmq_data:/var/lib/rabbitmq
         healthcheck:
             test: rabbitmq-diagnostics -q ping
             interval: 10s
@@ -21,7 +19,6 @@ services:
         volumes:
             - mysql_data:/var/lib/mysql
             - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-            - ./mysql/init2_customer_shipping.sql:/docker-entrypoint-initdb.d/init2_customer_shipping.sql
 
     order:
         build:
@@ -85,6 +82,9 @@ services:
         restart: unless-stopped
         ports:
             - "5001:5001"
+        depends_on:
+            rabbitmq:
+                condition: service_healthy
 
     catalog:
         build:

@@ -189,6 +189,9 @@ async function createChannel(queueName, sourceName, pattern) {
     rabbitmqChannel = await connection.createChannel();
     console.log(`[BusManager] Channel created`);
 
+    // Fair dispatch: handle one message at a time.
+    await rabbitmqChannel.prefetch(1);
+
     // Assert the exchange
     await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
 

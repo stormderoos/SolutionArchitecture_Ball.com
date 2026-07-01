@@ -1,5 +1,4 @@
 const db = require("./db");
-const { updateOrderStatus } = require("./dbService");
 
 module.exports = {
     // Database functions
@@ -47,6 +46,16 @@ module.exports = {
             orderId,
             orderStatus
         };
+    },
+
+    // Get a single order (used to read the current status before updating it)
+    async getOrder(orderId) {
+        const [rows] = await db.query(
+            "SELECT * FROM Orders WHERE orderId = ?",
+            [orderId]
+        );
+
+        return rows[0] || null;
     },
 
     // Delete a order

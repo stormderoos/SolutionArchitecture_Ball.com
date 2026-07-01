@@ -13,15 +13,20 @@ const run = async () => {
 
     // Consume messages
     rabbitmqChannel.consume("order_service", async (message) => {
-        const json = JSON.parse(message.content.toString());
+        try {
+            const json = JSON.parse(message.content.toString());
 
-        console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
+            console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
 
-        // Handel incomming messages
-        await handelMessage(json);
-
-        // Remove the message from the queue
-        rabbitmqChannel.ack(message);
+            // Handel incomming messages
+            await handelMessage(json);
+        } catch (err) {
+            // Log the error but don't crash: a failing message must not stop the consumer
+            console.error(`[OrderService] Error handling message:`, err);
+        } finally {
+            // Always remove the message from the queue so it doesn't loop forever (poison message)
+            rabbitmqChannel.ack(message);
+        }
     });
 };
 
@@ -219,6 +224,10 @@ async function createChannel(queueName, sourceName, pattern) {
     rabbitmqChannel = await connection.createChannel();
     console.log(`[BusManager] Channel created`);
 
+    // Fair dispatch: handle one message at a time. This serialises the status
+    // read-modify-write so concurrent status events can't cause a lost update.
+    await rabbitmqChannel.prefetch(1);
+
     // Assert the exchange
     await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
 
@@ -253,6 +262,9 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
 
 // Handel incomming messages
 async function handelMessage(json) {
+    // Read the job type from the message meta (this line was missing -> ReferenceError: job is not defined)
+    const job = json.meta.job;
+
     // Handle update product
     if (job === "update_product") {
         // Update the product
