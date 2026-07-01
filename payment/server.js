@@ -116,7 +116,7 @@ const startPayment = async (order, products) => {
         }
     );
 
-    console.log(`[PaymentService] Payment ${payment.paymentId} completed and event published`);
+    console.log(`[PaymentService] Payment ${payment.paymentId} complerted and event published`);
     return payment;
 };
 
