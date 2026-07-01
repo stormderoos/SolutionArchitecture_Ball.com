@@ -2,16 +2,24 @@ const db = require("./db");
 
 module.exports = {
     // Database functions
-    // Create a single pick list item (one product row of a pick list)
-    async createPickListItem(pickListId, productId, amount) {
-        // Insert the pick list row
-        await db.query(
-            "INSERT INTO PickList (pickListId, productId, amount) VALUES (?, ?, ?)",
-            [pickListId, productId, amount]
+    // Create a pick list
+    async createPickList(orderId, productId, amount) {
+        // Create a pick list
+        const [result] = await db.query(
+            "INSERT INTO PickList (orderId, productId, amount) VALUES (?, ?, ?)",
+            [orderId, productId, amount,]
         );
 
-        return { pickListId, productId, amount };
+        // Created pick list to return
+        const pickList = {
+            orderId: orderId,
+            productId: productId,
+            amount: amount
+        }
+
+        return pickList;
     },
+
 
 
     // Get all pick lists
