@@ -60,6 +60,18 @@ app.use((req, res, next) => {
 
 // Api routes
 
+// Event sourcing: get the event history of an order plus the state rebuilt by
+// replaying those events (demonstrates events as the source of truth).
+app.get("/order/:id/history", async (req, res) => {
+    try {
+        console.log("[OrderService] Order history: ", req.params.id);
+        const result = await dbService.getOrderHistory(req.params.id);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Get an order
 app.get("/order/:id", async (req, res) => {
     try {
@@ -189,22 +201,20 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
 }
 
 // Handel incomming messages
+// CQRS: the read side projects the order events (published by the write side) into
+// its own read model. The queries above read from that projection.
 async function handelMessage(json) {
     const job = json.meta.job;
 
-    // Handle get order
-    if (job === "get order") {
-        // Get the order
-        let order = await dbService.getOrder(json.data.orderId);
+    // Project an OrderCreated event
+    if (job === "order_created") {
+        await dbService.projectOrderCreated(json.data.orderId, json.data.customerId, json.data.orderStatus);
+        console.log(`[OrderRead] Projected OrderCreated for order ${json.data.orderId} (${json.data.orderStatus})`);
+    }
 
-        // Add the event to history
-        const date = new Date()
-        const log = await dbService.createEventLog({
-            name: `Get order at ${date}`,
-            description: `Get order with id ${json.data.orderId} at ${date}`,
-            date: date
-        })
-
-        console.log(`Updated order: ${order}`)
+    // Project an OrderStatusChanged event
+    if (job === "order_status_changed") {
+        await dbService.projectStatusChanged(json.data.orderId, json.data.orderStatus);
+        console.log(`[OrderRead] Projected status '${json.data.orderStatus}' for order ${json.data.orderId}`);
     }
 }

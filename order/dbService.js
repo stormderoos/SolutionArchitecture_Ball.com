@@ -32,6 +32,12 @@ module.exports = {
                 await db.createOrderProduct(createdOrder.orderId, op.productId, op.amount);
             }
 
+            // Event sourcing: record the creation as the first event of the order
+            await db.appendOrderEvent(createdOrder.orderId, "OrderCreated", {
+                orderStatus: createdOrder.orderStatus,
+                customerId: createdOrder.customerId
+            });
+
             return createdOrder;
         } catch (error) {
             console.error("Error creating order:", error);
@@ -72,13 +78,16 @@ module.exports = {
                 console.log(
                     `[OrderService] Ignoring status '${orderStatus}' for order ${orderId}: not ahead of current '${currentStatus}'`
                 );
-                return { orderId, orderStatus: currentStatus };
+                return { applied: false, orderId, orderStatus: currentStatus };
             }
 
-            // Update the order status
-            const order = await db.updateOrderStatus(orderId, orderStatus);
+            // Update the order status (write model)
+            await db.updateOrderStatus(orderId, orderStatus);
 
-            return order;
+            // Event sourcing: record the (forward) status change as an event
+            await db.appendOrderEvent(orderId, "OrderStatusChanged", { orderStatus });
+
+            return { applied: true, orderId, orderStatus };
         } catch (error) {
             console.error("Error updating order status:", error);
             throw error;
