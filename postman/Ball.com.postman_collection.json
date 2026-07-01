@@ -2,10 +2,9 @@
   "info": {
     "_postman_id": "65eb7e13-a52c-48e7-899d-e9b2073575ee",
     "name": "Ball.com",
-    "description": "Ball.com microservices — order & payment endpoints, plus a demo-scenario that shows eventual consistency.\n\nServices die HTTP aanbieden:\n- order: http://localhost:5000\n- payment: http://localhost:5001\n\nStart eerst de stack met `docker compose up --build`.",
+    "description": "Ball.com microservices — REST-endpoints per service plus een demo-scenario dat eventual consistency laat zien.\n\nServices die HTTP aanbieden:\n- order (write): http://localhost:5000\n- order-read: http://localhost:5010\n- payment: http://localhost:5001\n- catalog: http://localhost:5002\n- customer: http://localhost:5003\n- shipping: http://localhost:5004\n- warehouse: http://localhost:5100\n\nStart eerst de stack met `docker compose up --build`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "49384083",
-    "_collection_link": "https://go.postman.co/collection/49384083-65eb7e13-a52c-48e7-899d-e9b2073575ee?source=collection_link"
+    "_exporter_id": "49384083"
   },
   "item": [
     {
@@ -18,23 +17,15 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"order\": {\r\n        \"customerId\": 1\r\n    },\r\n    \"products\": [\r\n        { \"productId\": 1, \"amount\": 5 },\r\n        { \"productId\": 2, \"amount\": 10 }\r\n    ]\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n    \"order\": { \"customerId\": 1 },\n    \"products\": [\n        { \"productId\": 1, \"amount\": 5 },\n        { \"productId\": 2, \"amount\": 10 }\n    ]\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "http://localhost:5000/order",
               "protocol": "http",
-              "host": [
-                "localhost"
-              ],
+              "host": [ "localhost" ],
               "port": "5000",
-              "path": [
-                "order"
-              ]
+              "path": [ "order" ]
             }
           },
           "response": []
@@ -46,43 +37,45 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"order\": {\r\n        \"orderId\": 1,\r\n        \"orderStatus\": \"Picking products\",\r\n        \"customerId\": 1\r\n    },\r\n    \"products\": [\r\n        { \"productId\": 1, \"amount\": 5 },\r\n        { \"productId\": 2, \"amount\": 15 },\r\n        { \"productId\": 3, \"amount\": 10 }\r\n    ]\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n    \"order\": { \"orderId\": 1, \"orderStatus\": \"Picking products\", \"customerId\": 1 },\n    \"products\": [\n        { \"productId\": 1, \"amount\": 5 },\n        { \"productId\": 2, \"amount\": 15 }\n    ]\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "http://localhost:5000/order",
               "protocol": "http",
-              "host": [
-                "localhost"
-              ],
+              "host": [ "localhost" ],
               "port": "5000",
-              "path": [
-                "order"
-              ]
+              "path": [ "order" ]
             }
           },
           "response": []
         },
         {
-          "name": "Get a order",
+          "name": "Get a order (read side)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
               "raw": "http://localhost:5010/order/1",
               "protocol": "http",
-              "host": [
-                "localhost"
-              ],
+              "host": [ "localhost" ],
               "port": "5010",
-              "path": [
-                "order",
-                "1"
-              ]
+              "path": [ "order", "1" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get all orders (read side)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5010/order",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5010",
+              "path": [ "order" ]
             }
           },
           "response": []
@@ -95,71 +88,134 @@
             "url": {
               "raw": "http://localhost:5000/order/1",
               "protocol": "http",
-              "host": [
-                "localhost"
-              ],
+              "host": [ "localhost" ],
               "port": "5000",
-              "path": [
-                "order",
-                "1"
-              ]
+              "path": [ "order", "1" ]
             }
           },
           "response": []
         },
         {
-          "name": "Get all logs",
+          "name": "Get all event logs",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
               "raw": "http://localhost:5010/event",
               "protocol": "http",
-              "host": [
-                "localhost"
-              ],
+              "host": [ "localhost" ],
               "port": "5010",
-              "path": [
-                "event"
-              ]
+              "path": [ "event" ]
             }
           },
           "response": []
         },
         {
-          "name": "Get external costumer data",
+          "name": "Get external customer data (CSV/Excel)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
               "raw": "http://localhost:5010/customerData",
               "protocol": "http",
-              "host": [
-                "localhost"
-              ],
+              "host": [ "localhost" ],
               "port": "5010",
-              "path": [
-                "customerData"
-              ]
+              "path": [ "customerData" ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Catalog service",
+      "item": [
+        {
+          "name": "Get all products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5002/products",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5002",
+              "path": [ "products" ]
             }
           },
           "response": []
         },
         {
-          "name": "Get all orders",
+          "name": "Get suppliers with products",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "http://localhost:5010/order",
+              "raw": "http://localhost:5002/suppliers",
               "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "5010",
-              "path": [
-                "order"
-              ]
+              "host": [ "localhost" ],
+              "port": "5002",
+              "path": [ "suppliers" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create supplier",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Trusted Sports Supplier\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://localhost:5002/suppliers",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5002",
+              "path": [ "suppliers" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add product (upstream -> Order & Warehouse)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Basketball\", \"price\": 19.99, \"weight\": 0.6, \"supplierId\": 1 }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://localhost:5002/products",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5002",
+              "path": [ "products" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update product",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Basketball Pro\", \"price\": 24.99 }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://localhost:5002/products/4",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5002",
+              "path": [ "products", "4" ]
             }
           },
           "response": []
@@ -175,7 +231,11 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": ""
+              "raw": "http://localhost:5001/payments",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5001",
+              "path": [ "payments" ]
             }
           },
           "response": []
@@ -186,7 +246,11 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": ""
+              "raw": "http://localhost:5001/payment/1",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5001",
+              "path": [ "payment", "1" ]
             }
           },
           "response": []
@@ -195,23 +259,203 @@
           "name": "Process payment (manual)",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"order\": { \"orderId\": {{orderId}}, \"customerId\": 1, \"paymentMethod\": \"forward\" },\n  \"products\": [\n    { \"productId\": 1, \"amount\": 2 }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"order\": { \"orderId\": 1, \"customerId\": 1, \"paymentMethod\": \"forward\" },\n  \"products\": [ { \"productId\": 1, \"amount\": 2 } ]\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": ""
+              "raw": "http://localhost:5001/payment/process",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5001",
+              "path": [ "payment", "process" ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Warehouse service",
+      "item": [
+        {
+          "name": "Create a package (triggers shipment)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"orderId\": 1 }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "http://localhost:5100/package",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5100",
+              "path": [ "package" ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Shipping service",
+      "item": [
+        {
+          "name": "Get all carriers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5004/carrier",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5004",
+              "path": [ "carrier" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get all shipments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5004/shipment",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5004",
+              "path": [ "shipment" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get shipment by order id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5004/shipment/order/1",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5004",
+              "path": [ "shipment", "order", "1" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ship shipment (manual)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5004/shipment/1/ship",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5004",
+              "path": [ "shipment", "1", "ship" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get shipping event logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5004/event",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5004",
+              "path": [ "event" ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Customer service",
+      "item": [
+        {
+          "name": "Get all customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5003/customer",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5003",
+              "path": [ "customer" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get customer by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5003/customer/1",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5003",
+              "path": [ "customer", "1" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get orders of a customer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5003/customer/1/orders",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5003",
+              "path": [ "customer", "1", "orders" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get order status (tracking, FR6)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5003/order/1/status",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5003",
+              "path": [ "order", "1", "status" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get all tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5003/ticket",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5003",
+              "path": [ "ticket" ]
             }
           },
           "response": []
@@ -220,6 +464,7 @@
     },
     {
       "name": "Demo — eventual consistency",
+      "description": "Voer in volgorde uit. Stap 1 plaatst een order en slaat de orderId op in een collection-variabele. De services reageren asynchroon op de events, dus wacht 1-2 seconden tussen de stappen. Zo zie je de orderstatus 'meegroeien' met de events (eventual consistency): Order created -> (parallel) Paid / Picking products / Shipment pending -> na inpakken -> Shipped.",
       "item": [
         {
           "name": "1. Plaats order",
@@ -238,79 +483,98 @@
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"order\": { \"customerId\": 1 },\n  \"products\": [\n    { \"productId\": 1, \"amount\": 2 }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"order\": { \"customerId\": 1 },\n  \"products\": [ { \"productId\": 1, \"amount\": 2 } ]\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": ""
+              "raw": "http://localhost:5000/order",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5000",
+              "path": [ "order" ]
             }
           },
           "response": []
         },
         {
-          "name": "2. Bekijk betaling (door event aangemaakt)",
+          "name": "2. Bekijk betaling (aangemaakt door event)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": ""
+              "raw": "http://localhost:5001/payment/{{orderId}}",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5001",
+              "path": [ "payment", "{{orderId}}" ]
             }
           },
           "response": []
         },
         {
-          "name": "3. Bekijk order (status wordt uiteindelijk 'Paid')",
+          "name": "3. Bekijk order (status wordt 'Shipment pending')",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": ""
+              "raw": "http://localhost:5010/order/{{orderId}}",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5010",
+              "path": [ "order", "{{orderId}}" ]
             }
           },
           "response": []
-        }
-      ],
-      "description": "Voer deze in volgorde uit. Stap 1 plaatst een order; de Payment-service pikt het 'start_payment'-event op en meldt 'Paid' terug. Wacht 1–2 seconden tussen stap 1 en de volgende stappen zodat de events verwerkt zijn."
-    },
-    {
-      "name": "Warehouse service",
-      "item": [
+        },
         {
-          "name": "Create a package",
+          "name": "4. Magazijn pakt order in",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"orderId\": 2\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{ \"orderId\": {{orderId}} }",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "http://localhost:5100/package",
               "protocol": "http",
-              "host": [
-                "localhost"
-              ],
+              "host": [ "localhost" ],
               "port": "5100",
-              "path": [
-                "package"
-              ]
+              "path": [ "package" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Bekijk verzending (Shipped)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5004/shipment/order/{{orderId}}",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5004",
+              "path": [ "shipment", "order", "{{orderId}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6. Bekijk order (status is nu 'Shipped')",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5010/order/{{orderId}}",
+              "protocol": "http",
+              "host": [ "localhost" ],
+              "port": "5010",
+              "path": [ "order", "{{orderId}}" ]
             }
           },
           "response": []
@@ -319,17 +583,6 @@
     }
   ],
   "variable": [
-    {
-      "key": "orderHost",
-      "value": "http://localhost:5000"
-    },
-    {
-      "key": "paymentHost",
-      "value": "http://localhost:5001"
-    },
-    {
-      "key": "orderId",
-      "value": ""
-    }
+    { "key": "orderId", "value": "" }
   ]
 }
