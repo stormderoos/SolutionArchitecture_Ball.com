@@ -18,16 +18,11 @@ const run = async () => {
 
         console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
 
-        try {
-            // Handel incomming messages
-            await handelMessage(json);
-        } catch (error) {
-            // Log the error but do not crash the process or requeue forever (no poison-message loop)
-            console.error(`[OrderService] Error handling message ${json.meta.uuid}:`, error);
-        } finally {
-            // Always remove the message from the queue
-            rabbitmqChannel.ack(message);
-        }
+        // Handel incomming messages
+        await handelMessage(json);
+
+        // Remove the message from the queue
+        rabbitmqChannel.ack(message);
     });
 };
 
@@ -303,8 +298,6 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
 
 // Handel incomming messages
 async function handelMessage(json) {
-    const job = json.meta.job;
-
     // Handle update product
     if (json.meta.job === "update_product") {
         // Update the product

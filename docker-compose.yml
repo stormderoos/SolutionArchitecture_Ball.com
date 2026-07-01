@@ -21,6 +21,7 @@ services:
         volumes:
             - mysql_data:/var/lib/mysql
             - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+            - ./mysql/init2_customer_shipping.sql:/docker-entrypoint-initdb.d/init2_customer_shipping.sql
 
     order:
         build:
@@ -76,6 +77,24 @@ services:
         restart: unless-stopped
         ports:
             - "5002:5000"
+        depends_on:
+            rabbitmq:
+                condition: service_healthy
+
+    customer:
+        build:
+            context: ./customer
+        environment:
+            RABBITMQ_URL: amqp://rabbitmq
+            DB_HOST: mysql
+            DB_USER: root
+            DB_PASS: root
+            DB_NAME: CustomerServiceDB
+        volumes:
+            - ./customer_data.csv:/app/customer_data.csv
+        restart: unless-stopped
+        ports:
+            - "5003:5003"
         depends_on:
             rabbitmq:
                 condition: service_healthy

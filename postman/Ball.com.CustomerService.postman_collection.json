@@ -1,0 +1,299 @@
+{
+  "info": {
+    "_postman_id": "c2b22f11-1111-4111-9111-customerservice01",
+    "name": "Ball.com - Customer service",
+    "description": "Customer service endpoints: customer CRUD, CSV import, order tracking, and support tickets. Plus a guided end-to-end demo folder.\n\nServices die HTTP aanbieden:\n- order: http://localhost:5000\n- customer: http://localhost:5003\n\nStart eerst de stack met `docker compose up --build`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "orderHost", "value": "http://localhost:5000" },
+    { "key": "customerHost", "value": "http://localhost:5003" },
+    { "key": "orderId", "value": "" },
+    { "key": "customerId", "value": "1" },
+    { "key": "ticketId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Customer service",
+      "item": [
+        {
+          "name": "Get all customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/customer"
+          }
+        },
+        {
+          "name": "Get a customer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/customer/{{customerId}}"
+          }
+        },
+        {
+          "name": "Create a customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.customerId) {",
+                  "  pm.collectionVariables.set('customerId', data.customerId);",
+                  "  console.log('customerId =', data.customerId);",
+                  "}",
+                  "pm.test('customer created', () => pm.expect(pm.response.code).to.equal(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Acme BV\",\n  \"firstName\": \"Jan\",\n  \"lastName\": \"de Vries\",\n  \"phoneNumber\": \"+31 6 12345678\",\n  \"address\": \"Voorstraat 1, 1234AB Rotterdam\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{customerHost}}/customer/create"
+          }
+        },
+        {
+          "name": "Update a customer",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": {{customerId}},\n  \"companyName\": \"Acme BV\",\n  \"firstName\": \"Jan\",\n  \"lastName\": \"de Vries\",\n  \"phoneNumber\": \"+31 6 87654321\",\n  \"address\": \"Nieuwstraat 5, 1234AB Rotterdam\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{customerHost}}/customer/update"
+          }
+        },
+        {
+          "name": "Delete a customer",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{customerHost}}/customer/{{customerId}}"
+          }
+        },
+        {
+          "name": "Trigger CSV import (ad hoc integration)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{customerHost}}/customer/import"
+          }
+        },
+        {
+          "name": "Get event log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/event"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Track & support",
+      "item": [
+        {
+          "name": "Get all orders for a customer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/customer/{{customerId}}/orders"
+          }
+        },
+        {
+          "name": "Get tracked status of one order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/order/{{orderId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Support tickets",
+      "item": [
+        {
+          "name": "Create a ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.ticketId) {",
+                  "  pm.collectionVariables.set('ticketId', data.ticketId);",
+                  "  console.log('ticketId =', data.ticketId);",
+                  "}",
+                  "pm.test('ticket created', () => pm.expect(pm.response.code).to.equal(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": {{customerId}},\n  \"orderId\": {{orderId}},\n  \"subject\": \"Where is my order\",\n  \"message\": \"Can you check the status of my order? It has been a few days.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{customerHost}}/ticket/create"
+          }
+        },
+        {
+          "name": "Get all tickets (service department overview)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/ticket"
+          }
+        },
+        {
+          "name": "Get a single ticket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/ticket/{{ticketId}}"
+          }
+        },
+        {
+          "name": "Get all tickets for a customer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/customer/{{customerId}}/tickets"
+          }
+        },
+        {
+          "name": "Answer a ticket (service department responds)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"response\": \"Your order is currently being picked in the warehouse and should ship within 1-2 days.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{customerHost}}/ticket/{{ticketId}}/answer"
+          }
+        },
+        {
+          "name": "Close a ticket",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": "{{customerHost}}/ticket/{{ticketId}}/close"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Demo",
+      "description": "Stap 1 plaatst een order via Order management met een bestaande customerId. Order publiceert events naar meerdere services. Customer service pikt 'order_created' op via RabbitMQ en slaat de order lokaal op (eventual consistency)",
+      "item": [
+        {
+          "name": "1. Plaats order (customerId 1 bestaat al)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.orderId) pm.collectionVariables.set('orderId', data.orderId);",
+                  "console.log('Nieuwe orderId =', pm.collectionVariables.get('orderId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order\": { \"customerId\": 1 },\n  \"products\": [\n    { \"productId\": 1, \"amount\": 2 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{orderHost}}/order/create"
+          }
+        },
+        {
+          "name": "2. Bekijk getrackte order status (door event aangemaakt)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/order/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "3. Bekijk alle orders van klant 1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/customer/1/orders"
+          }
+        },
+        {
+          "name": "4. Klant maakt een support ticket aan over deze order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.ticketId) pm.collectionVariables.set('ticketId', data.ticketId);",
+                  "console.log('Nieuw ticketId =', pm.collectionVariables.get('ticketId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 1,\n  \"orderId\": {{orderId}},\n  \"subject\": \"Where is my order\",\n  \"message\": \"Can you check the status of my order?\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{customerHost}}/ticket/create"
+          }
+        },
+        {
+          "name": "5. Klantenservice beantwoordt ticket",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"response\": \"Your order is on its way!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{customerHost}}/ticket/{{ticketId}}/answer"
+          }
+        },
+        {
+          "name": "6. Bekijk beantwoord ticket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{customerHost}}/ticket/{{ticketId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
