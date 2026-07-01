@@ -1,5 +1,4 @@
 const db = require("./db");
-const { updateOrderStatus } = require("./dbService");
 
 module.exports = {
     // Database functions
@@ -47,6 +46,16 @@ module.exports = {
             orderId,
             orderStatus
         };
+    },
+
+    // Get a single order (used to read the current status before updating it)
+    async getOrder(orderId) {
+        const [rows] = await db.query(
+            "SELECT * FROM Orders WHERE orderId = ?",
+            [orderId]
+        );
+
+        return rows[0] || null;
     },
 
     // Delete a order
@@ -127,6 +136,19 @@ module.exports = {
         );
 
         return product;
+    },
+
+    // Insert or update a product replica coming from the Catalog (the upstream
+    // owner of products). Keyed on the Catalog productId so this local copy keeps
+    // the SAME identity, which OrderProduct references. Idempotent.
+    async upsertProduct(product) {
+        await db.query(
+            "INSERT INTO Product (productId, name, description) VALUES (?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)",
+            [product.productId, product.name, product.description ?? null]
+        );
+
+        return { productId: product.productId, name: product.name, description: product.description ?? null };
     },
 
     // Delete a product

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "c2b22f11-1111-4111-9111-customerservice01",
     "name": "Ball.com - Customer service",
-    "description": "Customer service endpoints: customer CRUD, CSV import, order tracking, and support tickets. Plus a guided end-to-end demo folder.\n\nServices die HTTP aanbieden:\n- order: http://localhost:5000\n- customer: http://localhost:5003\n\nStart eerst de stack met `docker compose up --build`.",
+    "description": "Customer service endpoints: customer CRUD, CSV import, order tracking, and support tickets. Plus a guided end-to-end demo folder.Services die HTTP aanbieden:- order: http://localhost:5000 - customer: http://localhost:5003 Start eerst de stack met `docker compose up --build`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -227,7 +227,7 @@
               "raw": "{\n  \"order\": { \"customerId\": 1 },\n  \"products\": [\n    { \"productId\": 1, \"amount\": 2 }\n  ]\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": "{{orderHost}}/order/create"
+            "url": "{{orderHost}}/order"
           }
         },
         {

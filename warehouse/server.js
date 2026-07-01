@@ -28,6 +28,11 @@ const run = async () => {
             if (json.meta.job === "update_pick_list") {
                 await dbService.updatePickList(json.data.order.orderId, json.data.orderProducts);
             }
+
+            // Handle product replica from the Catalog (upstream owner of products)
+            if (json.meta.job === "add_product" || json.meta.job === "update_product") {
+                await dbService.upsertProduct(json.data);
+            }
         } catch (error) {
             // Log the error but do not crash the process or requeue forever (no poison-message loop)
             console.error(`[WarehouseService] Error handling message ${json.meta.uuid}:`, error);
@@ -188,6 +193,9 @@ async function createChannel(queueName, sourceName, pattern) {
     // Create a channel
     rabbitmqChannel = await connection.createChannel();
     console.log(`[BusManager] Channel created`);
+
+    // Fair dispatch: handle one message at a time.
+    await rabbitmqChannel.prefetch(1);
 
     // Assert the exchange
     await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });

@@ -13,18 +13,18 @@ const run = async () => {
 
     // Consume messages
     rabbitmqChannel.consume("order_service", async (message) => {
-        const json = JSON.parse(message.content.toString());
+        try {
+            const json = JSON.parse(message.content.toString());
 
-        console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
+            console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
 
-       try {
             // Handel incomming messages
             await handelMessage(json);
-        } catch (error) {
-            // Log the error but do not crash the process or requeue forever (no poison-message loop)
-            console.error(`[OrderService] Error handling message ${json.meta.uuid}:`, error);
+        } catch (err) {
+            // Log the error but don't crash: a failing message must not stop the consumer
+            console.error(`[OrderService] Error handling message:`, err);
         } finally {
-            // Always remove the message from the queue
+            // Always remove the message from the queue so it doesn't loop forever
             rabbitmqChannel.ack(message);
         }
     });
@@ -224,6 +224,10 @@ async function createChannel(queueName, sourceName, pattern) {
     rabbitmqChannel = await connection.createChannel();
     console.log(`[BusManager] Channel created`);
 
+    // Fair dispatch: handle one message at a time. This serialises the status
+    // read-modify-write so concurrent status events can't cause a lost update.
+    await rabbitmqChannel.prefetch(1);
+
     // Assert the exchange
     await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
 
@@ -258,11 +262,13 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
 
 // Handel incomming messages
 async function handelMessage(json) {
-       const job = json.meta.job;
-    // Handle update product
+    // Read the job type from the message meta (this line was missing -> ReferenceError: job is not defined)
+    const job = json.meta.job;
+
+    // Handle update product (product replica from the Catalog upstream)
     if (job === "update_product") {
-        // Update the product
-        let product = await dbService.updateProduct(json.data);
+        // Upsert so the local replica stays in sync even if the create was missed
+        let product = await dbService.upsertProduct(json.data);
 
         // Add the event to history
         const date = new Date()
@@ -291,10 +297,10 @@ async function handelMessage(json) {
         console.log(`Updated costumer: ${costumer}`)
     }
 
-    // Handle add product
+    // Handle add product (product replica from the Catalog upstream)
     if (job === "add_product") {
-        // Create a product
-        const product = await dbService.createProduct(json.data);
+        // Upsert on the Catalog productId so the local copy keeps the same identity
+        const product = await dbService.upsertProduct(json.data);
 
         // Add the event to history
         const date = new Date()

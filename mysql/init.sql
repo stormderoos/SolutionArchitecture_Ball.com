@@ -119,7 +119,7 @@ CREATE TABLE EventLogs (
     date DATETIME
 );
 
--- ===== PaymentServiceDB (Storm / Payment service) =====
+-- ===== PaymentServiceDB =====
 
 USE PaymentServiceDB;
 
@@ -174,25 +174,9 @@ INSERT INTO Carrier (name, pricePerShipment)
 SELECT 'PostNL', 5.95
 WHERE NOT EXISTS (SELECT 1 FROM Carrier WHERE name = 'PostNL');
 
--- Seed OrderProduct table
-INSERT INTO OrderProduct (orderId, productId, amount)
-SELECT 1, 1, 2
-WHERE NOT EXISTS (SELECT 1 FROM OrderProduct);
-
-INSERT INTO OrderProduct (orderId, productId, amount)
-SELECT 1, 2, 5;
-
-INSERT INTO OrderProduct (orderId, productId, amount)
-SELECT 1, 3, 10;
-
-INSERT INTO OrderProduct (orderId, productId, amount)
-SELECT 2, 1, 1;
-
-INSERT INTO OrderProduct (orderId, productId, amount)
-SELECT 2, 2, 3;
-
-INSERT INTO OrderProduct (orderId, productId, amount)
-SELECT 2, 3, 10;
+-- (OrderProduct seed removed: it was placed under "USE ShippingServiceDB" but OrderProduct
+--  lives in OrderServiceDB, and the parent Orders/Product rows are not seeded yet here.
+--  This caused the MySQL init to crash. OrderProducts are created at runtime when an order is placed.)
 
 -- ===== WarehouseServiceDB =====
 
@@ -233,12 +217,9 @@ SELECT 2, 3, 10;
 
 USE CustomerServiceDB;
 
--- Seed CustomerOrder table
-INSERT INTO CustomerOrder (orderId, customerId, orderStatus)
-SELECT 1, 1, 'Picking prodcuts';
-
-INSERT INTO CustomerOrder (orderId, customerId, orderStatus)
-SELECT 2, 2, 'Picking prodcuts';
+-- (CustomerOrder seed removed: the Customer table in CustomerServiceDB is
+--  populated at runtime by the customer-service CSV import, so seeding
+--  CustomerOrder here fails the customerId foreign key and aborts init.)
 
 -- ===== PaymentServiceDB =====
 

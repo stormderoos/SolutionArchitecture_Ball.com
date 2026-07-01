@@ -215,6 +215,47 @@ async function handleMessage(json) {
         console.log(`[ShippingService] Shipment created for order ${order.orderId}`);
     }
 
+    // Warehouse says the order is packaged and ready to ship -> dispatch the shipment
+    if (job === "send_shipment") {
+        const orderId = json.data.orderId;
+
+        const shipment = await dbService.getShipmentByOrderId(orderId);
+
+        if (!shipment) {
+            console.error(`[ShippingService] No shipment found for order ${orderId} to dispatch`);
+            return;
+        }
+
+        await dbService.updateShipmentStatus(shipment.shipmentId, "Shipped");
+
+        // Tell Order management the order has been shipped
+        await publishMessage(
+            "local_exchange",
+            "order_service",
+            "shipment_dispatched",
+            "update_status",
+            { orderId: orderId, orderStatus: "Shipped" }
+        );
+
+        // Also tell Customer service so its local database is updated
+        await publishMessage(
+            "local_exchange",
+            "costumer_service",
+            "shipment_dispatched",
+            "update_status",
+            { orderId: orderId, orderStatus: "Shipped" }
+        );
+
+        const date = new Date();
+        await dbService.createEventLog({
+            name: `Shipment dispatched at ${date}`,
+            description: `Dispatched shipment ${shipment.shipmentId} for order ${orderId} after warehouse packaging at ${date}`,
+            date: date
+        });
+
+        console.log(`[ShippingService] Shipment for order ${orderId} dispatched (warehouse packaged)`);
+    }
+
     // Order management says order was updated -> update matching shipment status
     if (job === "update_order") {
         const order = json.data.order || json.data.updatedOrder?.order || json.data.updatedOrder;
@@ -274,6 +315,9 @@ async function createChannel(queueName, sourceName, pattern) {
 
     rabbitmqChannel = await connection.createChannel();
     console.log(`[BusManager] Channel created`);
+
+    // Fair dispatch: handle one message at a time.
+    await rabbitmqChannel.prefetch(1);
 
     await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
     await rabbitmqChannel.assertQueue(queueName, { durable: true });

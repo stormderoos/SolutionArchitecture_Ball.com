@@ -41,5 +41,15 @@ module.exports = {
     // Create a package
     async createPackage(orderId) {
         return db.createPackage(orderId);
+    },
+
+    // Insert or update a product replica from the Catalog (upstream). Idempotent.
+    async upsertProduct(product) {
+        try {
+            return await db.upsertProduct(product);
+        } catch (error) {
+            console.error("Error upserting product:", error);
+            throw error;
+        }
     }
 };

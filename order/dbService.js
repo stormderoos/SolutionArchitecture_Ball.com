@@ -1,5 +1,25 @@
 const db = require("./dbRepository");
 
+// Canonical order lifecycle. The index is the progression rank of a status.
+// The order aggregate may only move its status FORWARD along this flow, never back.
+// This keeps the final status deterministic even though independent services
+// (payment -> "Paid", warehouse -> "Picking products"/"Products picked",
+//  shipping -> "Shipment pending"/"Shipped") report back concurrently.
+const ORDER_STATUS_FLOW = [
+    "Order created",
+    "Paid",
+    "Picking products",
+    "Products picked",
+    "Shipment pending",
+    "Shipped",
+    "Delivered"
+];
+
+// Return the progression rank of a status (-1 for unknown statuses).
+function statusRank(status) {
+    return ORDER_STATUS_FLOW.indexOf(status);
+}
+
 module.exports = {
     // Create an order
     async createOrder(order, orderProducts) {
@@ -42,12 +62,25 @@ module.exports = {
     //Update an order status
     async updateOrderStatus(orderId, orderStatus) {
         try {
+            // Read the current status so we can enforce the forward-only invariant
+            const current = await db.getOrder(orderId);
+            const currentStatus = current ? current.orderStatus : null;
+
+            // Never move the status backwards: only apply the update if the new
+            // status is further along the lifecycle than the current one.
+            if (currentStatus !== null && statusRank(orderStatus) <= statusRank(currentStatus)) {
+                console.log(
+                    `[OrderService] Ignoring status '${orderStatus}' for order ${orderId}: not ahead of current '${currentStatus}'`
+                );
+                return { orderId, orderStatus: currentStatus };
+            }
+
             // Update the order status
-            order = await db.updateOrderStatus(orderId, orderStatus);
+            const order = await db.updateOrderStatus(orderId, orderStatus);
 
             return order;
         } catch (error) {
-            console.error("Error updating order:", error);
+            console.error("Error updating order status:", error);
             throw error;
         }
     },
@@ -126,6 +159,16 @@ module.exports = {
             return await db.updateProduct(product);
         } catch (error) {
             console.error("Error updating product:", error);
+            throw error;
+        }
+    },
+
+    // Insert or update a product replica from the Catalog (upstream). Idempotent.
+    async upsertProduct(product) {
+        try {
+            return await db.upsertProduct(product);
+        } catch (error) {
+            console.error("Error upserting product:", error);
             throw error;
         }
     },
