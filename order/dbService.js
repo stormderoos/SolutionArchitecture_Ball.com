@@ -3,12 +3,14 @@ const db = require("./dbRepository");
 // Canonical order lifecycle. The index is the progression rank of a status.
 // The order aggregate may only move its status FORWARD along this flow, never back.
 // This keeps the final status deterministic even though independent services
-// (warehouse -> "Picking products", payment -> "Paid") report back concurrently.
+// (payment -> "Paid", warehouse -> "Picking products"/"Products picked",
+//  shipping -> "Shipment pending"/"Shipped") report back concurrently.
 const ORDER_STATUS_FLOW = [
     "Order created",
     "Paid",
     "Picking products",
     "Products picked",
+    "Shipment pending",
     "Shipped",
     "Delivered"
 ];
@@ -157,6 +159,16 @@ module.exports = {
             return await db.updateProduct(product);
         } catch (error) {
             console.error("Error updating product:", error);
+            throw error;
+        }
+    },
+
+    // Insert or update a product replica from the Catalog (upstream). Idempotent.
+    async upsertProduct(product) {
+        try {
+            return await db.upsertProduct(product);
+        } catch (error) {
+            console.error("Error upserting product:", error);
             throw error;
         }
     },

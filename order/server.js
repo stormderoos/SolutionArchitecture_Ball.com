@@ -265,10 +265,10 @@ async function handelMessage(json) {
     // Read the job type from the message meta (this line was missing -> ReferenceError: job is not defined)
     const job = json.meta.job;
 
-    // Handle update product
+    // Handle update product (product replica from the Catalog upstream)
     if (job === "update_product") {
-        // Update the product
-        let product = await dbService.updateProduct(json.data);
+        // Upsert so the local replica stays in sync even if the create was missed
+        let product = await dbService.upsertProduct(json.data);
 
         // Add the event to history
         const date = new Date()
@@ -297,10 +297,10 @@ async function handelMessage(json) {
         console.log(`Updated costumer: ${costumer}`)
     }
 
-    // Handle add product
+    // Handle add product (product replica from the Catalog upstream)
     if (job === "add_product") {
-        // Create a product
-        const product = await dbService.createProduct(json.data);
+        // Upsert on the Catalog productId so the local copy keeps the same identity
+        const product = await dbService.upsertProduct(json.data);
 
         // Add the event to history
         const date = new Date()

@@ -10,8 +10,21 @@ const routingKey = "catalog_service";
 let rabbitmqChannel = null;
 
 async function createChannel() {
-    const connection = await amqp.connect(rabbitmqUrl);
+    // Retry until RabbitMQ is available, so we don't end up running without a
+    // channel (which would silently drop all product events to the downstreams).
+    let connection;
+    for (let attempt = 1; ; attempt++) {
+        try {
+            connection = await amqp.connect(rabbitmqUrl);
+            break;
+        } catch (err) {
+            console.log(`[CatalogService] RabbitMQ not ready (attempt ${attempt}), retrying in 3s...`);
+            await new Promise((r) => setTimeout(r, 3000));
+        }
+    }
+
     rabbitmqChannel = await connection.createChannel();
+    await rabbitmqChannel.prefetch(1);
     await rabbitmqChannel.assertExchange(exchangeName, "direct", { durable: true });
     await rabbitmqChannel.assertQueue(queueName, { durable: true });
     await rabbitmqChannel.bindQueue(queueName, exchangeName, routingKey);
@@ -53,6 +66,33 @@ async function publishEvent(event, job, data) {
     });
 }
 
+// Publish an event to a specific downstream service queue.
+async function publishToService(targetQueue, event, job, data) {
+    if (!rabbitmqChannel) {
+        return;
+    }
+
+    const payload = {
+        meta: {
+            uuid: crypto.randomUUID(),
+            event,
+            job
+        },
+        data
+    };
+
+    rabbitmqChannel.publish(exchangeName, targetQueue, Buffer.from(JSON.stringify(payload)), {
+        persistent: true
+    });
+}
+
+// Catalog is the upstream owner of products. Order and Warehouse are downstream
+// contexts that keep a local product replica (keyed on the same productId).
+async function publishProductEvent(event, job, product) {
+    await publishToService("order_service", event, job, product);
+    await publishToService("warehouse_service", event, job, product);
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -88,7 +128,7 @@ app.get("/suppliers", async (req, res) => {
 app.post("/products", async (req, res) => {
     try {
         const product = await dbService.createProduct(req.body);
-        await publishEvent("product_created", "new_product", product);
+        await publishProductEvent("product_created", "add_product", product);
         res.status(201).json(product);
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -108,7 +148,7 @@ app.post("/suppliers", async (req, res) => {
 app.put("/products/:id", async (req, res) => {
     try {
         const updatedProduct = await dbService.updateProduct(req.params.id, req.body);
-        await publishEvent("product_updated", "update_product", updatedProduct);
+        await publishProductEvent("product_updated", "update_product", updatedProduct);
         res.json(updatedProduct);
     } catch (err) {
         res.status(400).json({ error: err.message });

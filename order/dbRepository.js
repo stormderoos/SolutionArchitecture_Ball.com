@@ -138,6 +138,19 @@ module.exports = {
         return product;
     },
 
+    // Insert or update a product replica coming from the Catalog (the upstream
+    // owner of products). Keyed on the Catalog productId so this local copy keeps
+    // the SAME identity, which OrderProduct references. Idempotent.
+    async upsertProduct(product) {
+        await db.query(
+            "INSERT INTO Product (productId, name, description) VALUES (?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)",
+            [product.productId, product.name, product.description ?? null]
+        );
+
+        return { productId: product.productId, name: product.name, description: product.description ?? null };
+    },
+
     // Delete a product
     async deleteProduct(productId) {
         // Delete a product

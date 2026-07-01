@@ -76,5 +76,26 @@ module.exports = {
         }
 
         return data;
+    },
+
+    // Insert or update a product replica coming from the Catalog (the upstream
+    // owner of products). Keyed on the Catalog productId so PickList can reference
+    // it. On update we only sync name and price and leave the local stock intact.
+    async upsertProduct(product) {
+        await db.query(
+            "INSERT INTO Product (productId, name, description, price, manufacturer, amountStored) " +
+            "VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price)",
+            [
+                product.productId,
+                product.name,
+                product.description ?? null,
+                product.price ?? 0,
+                product.manufacturer ?? null,
+                product.amountStored ?? 0
+            ]
+        );
+
+        return { productId: product.productId, name: product.name, price: product.price ?? 0 };
     }
 };
