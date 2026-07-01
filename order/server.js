@@ -114,6 +114,13 @@ const createOrder = async (request) => {
         products: request.products
     }
 
+    // Publish the domain event to the read side (CQRS): the read model projects this
+    await publishMessage("local_exchange", "order_write_service", "order_created", "order_created", {
+        orderId: createdOrder.orderId,
+        customerId: createdOrder.customerId,
+        orderStatus: createdOrder.orderStatus
+    });
+
     // Publish event to the warehouse service
     await publishMessage("local_exchange", "warehouse_service", "order_created", "move_product", dataToSend);
 
@@ -363,17 +370,25 @@ async function handelMessage(json) {
 
     // Handle update the order status
     if (job === "update_status") {
-        // Update the order status
-        const order = await dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
+        // Update the order status (forward-only). result.applied tells us if it changed.
+        const result = await dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
 
-        // Add the event to history
-        const date = new Date()
-        const log = await dbService.createEventLog({
-            name: `Update order status at ${date}`,
-            description: `Update the order status of the order with id ${order.orderId} at ${date}`,
-            date: date
-        })
+        if (result.applied) {
+            // Publish the domain event to the read side (CQRS): it updates its projection
+            await publishMessage("local_exchange", "order_write_service", "order_status_changed", "order_status_changed", {
+                orderId: result.orderId,
+                orderStatus: result.orderStatus
+            });
 
-        console.log(`[OrderService] Updated order status: ${order}`)
+            // Add the event to history
+            const date = new Date()
+            const log = await dbService.createEventLog({
+                name: `Update order status at ${date}`,
+                description: `Update the order status of the order with id ${result.orderId} at ${date}`,
+                date: date
+            })
+
+            console.log(`[OrderService] Updated order status of order ${result.orderId} to ${result.orderStatus}`)
+        }
     }
 }

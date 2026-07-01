@@ -2,32 +2,58 @@ const db = require("./db");
 
 module.exports = {
     // Database functions
-    // Get a order
+    // CQRS read model: queries read from the projection that is built from events,
+    // NOT from the write-side Orders table.
     async getOrder(orderId) {
-        // Get a order
         const [rows] = await db.query(
-            "SELECT * FROM Orders WHERE orderId = ?",
+            "SELECT * FROM OrderReadModel WHERE orderId = ?",
             [orderId]
         );
 
         return rows[0];
     },
 
-    // Get all orders
+    // Get all orders (from the read model)
     async getAllOrders() {
-        // Get all orders
         const [rows] = await db.query(
-            "SELECT * FROM Orders",
+            "SELECT * FROM OrderReadModel"
         );
 
         return rows;
     },
 
-   // Get all event logs
+    // Project an OrderCreated event into the read model (insert the order)
+    async projectOrderCreated(orderId, customerId, orderStatus) {
+        await db.query(
+            "INSERT INTO OrderReadModel (orderId, customerId, orderStatus, updatedAt) VALUES (?, ?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE customerId = VALUES(customerId), orderStatus = VALUES(orderStatus), updatedAt = VALUES(updatedAt)",
+            [orderId, customerId, orderStatus, new Date()]
+        );
+    },
+
+    // Project an OrderStatusChanged event into the read model (update the status)
+    async projectStatusChanged(orderId, orderStatus) {
+        await db.query(
+            "INSERT INTO OrderReadModel (orderId, orderStatus, updatedAt) VALUES (?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE orderStatus = VALUES(orderStatus), updatedAt = VALUES(updatedAt)",
+            [orderId, orderStatus, new Date()]
+        );
+    },
+
+    // Get all event logs
     async getEventLogs() {
-        // Get all event logs
         const [rows] = await db.query(
             "SELECT * FROM EventLogs"
+        );
+
+        return rows;
+    },
+
+    // Event sourcing: get the full, ordered event stream for one order.
+    async getOrderEvents(orderId) {
+        const [rows] = await db.query(
+            "SELECT * FROM OrderEvents WHERE orderId = ? ORDER BY eventId ASC",
+            [orderId]
         );
 
         return rows;
