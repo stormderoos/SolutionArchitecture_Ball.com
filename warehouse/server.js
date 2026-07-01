@@ -1,6 +1,7 @@
 // Imports
 const amqp = require("amqplib");
 const express = require("express");
+const express = require("express");
 const rabbitmqUrl = process.env.RABBITMQ_URL || "amqp://localhost";
 const dbService = require("./dbService");
 
@@ -39,6 +40,51 @@ const run = async () => {
 };
 
 run();
+
+// Setup the Express app
+const app = express();
+
+// Trust proxy
+app.enable("trust proxy");
+
+// Enable body parsers
+app.use(express.json());
+app.use(express.text());
+app.use(express.urlencoded({ extended: false }));
+
+// Request logger
+app.use((req, res, next) => {
+    console.log(`[Web]: ${req.originalUrl}`);
+    next();
+});
+
+// Allow CORS
+app.use((req, res, next) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "*");
+    res.set("Access-Control-Allow-Methods", "*");
+    next();
+});
+
+// Api routes
+// Create an pakkage
+app.post("/package", async (req, res) => {
+    try {
+        console.log("[WarehouseService] Package create: ", req.body);
+        const result = await createPackage(req.body.orderId);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Disable powered by header for security reasons
+app.disable("x-powered-by");
+
+// Start listening on port
+app.listen(5100, "0.0.0.0", async () => {
+    console.log(`[App] Running on: 0.0.0.0:` + 5100);
+});
 
 // Setup the Express app
 const app = express();

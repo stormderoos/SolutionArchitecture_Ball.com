@@ -51,10 +51,10 @@ CREATE TABLE Product (
 );
 
 CREATE TABLE PickList (
-    pickListId INT,
+    orderId INT,
     productId INT,
     amount INT,
-    PRIMARY KEY (pickListId, productId),
+    PRIMARY KEY (orderId, productId),
     FOREIGN KEY (productId) REFERENCES Product(productId)
 );
 
@@ -128,23 +128,23 @@ SELECT 'Football', 'A orange football', 3.25, 'Nike', 100;
 INSERT INTO Product (name, description, price, manufacturer, amountStored)
 SELECT 'Marker', 'A black permanent marker', 1, 'Hema', 500;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 1, 1, 2
 WHERE NOT EXISTS (SELECT 1 FROM PickList);
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 1, 2, 5;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 1, 3, 10;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 2, 1, 1;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 2, 2, 3;
 
-INSERT INTO PickList (pickListId, productId, amount)
+INSERT INTO PickList (orderId, productId, amount)
 SELECT 2, 3, 10;
 
 -- ===== PaymentServiceDB (Storm / Payment service) =====
