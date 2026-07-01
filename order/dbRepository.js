@@ -1,4 +1,5 @@
 const db = require("./db");
+const { updateOrderStatus } = require("./dbService");
 
 module.exports = {
     // Database functions
@@ -33,6 +34,21 @@ module.exports = {
         return order;
     },
 
+    // Update a order status
+    async updateOrderStatus(orderId, orderStatus) {
+        // Update a order status
+        await db.query(
+            "UPDATE Orders SET orderStatus = ? WHERE orderId = ?",
+            [orderStatus, orderId]
+        );
+
+        // Return updated order fields
+        return {
+            orderId,
+            orderStatus
+        };
+    },
+
     // Delete a order
     async deleteOrder(orderId) {
         // Delete a order
@@ -40,17 +56,6 @@ module.exports = {
             [orderId]
         );
         return true;
-    },
-
-    // Get a order
-    async getOrder(orderId) {
-        // Get a order
-        const [rows] = await db.query(
-            "SELECT * FROM Orders WHERE orderId = ?",
-            [orderId]
-        );
-
-        return rows[0];
     },
 
     // Get orders by customer id
@@ -99,17 +104,6 @@ module.exports = {
         return true;
     },
 
-    // Get a customer
-    async getCustomer(customerId) {
-        // Get a costumer
-        const [rows] = await db.query(
-            "SELECT * FROM Customer WHERE customerId = ?",
-            [customerId]
-        );
-
-        return rows[0];
-    },
-
     // Create a product
     async createProduct(product) {
         // Creare the product
@@ -143,17 +137,6 @@ module.exports = {
         );
 
         return true;
-    },
-
-    // Get a product
-    async getProduct(productId) {
-        // Get a product
-        const [rows] = await db.query(
-            "SELECT * FROM Product WHERE productId = ?",
-            [productId]
-        );
-
-        return rows[0];
     },
 
     // Create order product connection
@@ -230,15 +213,5 @@ module.exports = {
         eventLog.eventLogsId = result.insertId;
 
         return eventLog;
-    },
-
-    // Get all event logs
-    async getEventLogs() {
-        // Get all event logs
-        const [rows] = await db.query(
-            "SELECT * FROM EventLogs"
-        );
-
-        return rows;
     }
 };

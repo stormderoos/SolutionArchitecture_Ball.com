@@ -39,26 +39,11 @@ module.exports = {
         }
     },
 
-    // Get an order
-    async getOrder(orderId) {
-        try {
-            return await db.getOrder(orderId);
-        } catch (error) {
-            console.error("Error getting order:", error);
-            throw error;
-        }
-    },
-
     //Update an order status
     async updateOrderStatus(orderId, orderStatus) {
         try {
-            // Get the order
-            let order = await this.getOrder(orderId);
-
-            // Set the order status to the new status
-            order.orderStatus = orderStatus;
-
-            order = await db.updateOrder(order);
+            // Update the order status
+            order = await db.updateOrderStatus(orderId, orderStatus);
 
             return order;
         } catch (error) {
@@ -125,16 +110,6 @@ module.exports = {
         }
     },
 
-    // Get a customer
-    async getCustomer(customerId) {
-        try {
-            return await db.getCustomer(customerId);
-        } catch (error) {
-            console.error("Error getting customer:", error);
-            throw error;
-        }
-    },
-
     // Create a product
     async createProduct(product) {
         try {
@@ -174,16 +149,6 @@ module.exports = {
         }
     },
 
-    // Get a product
-    async getProduct(productId) {
-        try {
-            return await db.getProduct(productId);
-        } catch (error) {
-            console.error("Error getting product:", error);
-            throw error;
-        }
-    },
-
     // Update a order product
     async updateOrderProducts(orderId, orderProducts) {
         try {
@@ -213,16 +178,6 @@ module.exports = {
             return await db.createEventLog(eventLog);
         } catch (error) {
             console.error("Error creating event log:", error);
-            throw error;
-        }
-    },
-
-    // Get all event logs
-    async getEventLogs() {
-        try {
-            return await db.getEventLogs();
-        } catch (error) {
-            console.error("Error getting event logs:", error);
             throw error;
         }
     }

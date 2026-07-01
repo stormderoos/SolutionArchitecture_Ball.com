@@ -3,33 +3,27 @@ const amqp = require("amqplib");
 const express = require("express");
 const rabbitmqUrl = process.env.RABBITMQ_URL || "amqp://localhost";
 const dbService = require("./dbService");
+const excelReader = require("./excelReader");
 
 // Global variables
 let rabbitmqChannel = null;
 
 // Main application loop
 const run = async () => {
-    await createChannel("payment_service", "local_exchange", "payment_service");
+    await createChannel("order_write_service", "local_exchange", "order_write_service");
 
     // Consume messages
-    rabbitmqChannel.consume("payment_service", async (message) => {
+    rabbitmqChannel.consume("order_write_service", async (message) => {
         const json = JSON.parse(message.content.toString());
-        console.log(
-            `[PaymentService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`
-        );
+
+        console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
 
         try {
-            // Handle incoming jobs (sent by the order service)
-            if (json.meta.job === "start_payment") {
-                await startPayment(json.data.order, json.data.products);
-            }
-
-            if (json.meta.job === "delete_order") {
-                await deletePayment(json.data.orderId);
-            }
+            // Handel incomming messages
+            await handelMessage(json);
         } catch (error) {
             // Log the error but do not crash the process or requeue forever (no poison-message loop)
-            console.error(`[PaymentService] Error handling message ${json.meta.uuid}:`, error);
+            console.error(`[OrderService] Error handling message ${json.meta.uuid}:`, error);
         } finally {
             // Always remove the message from the queue
             rabbitmqChannel.ack(message);
@@ -41,7 +35,11 @@ run();
 
 // Setup the Express app
 const app = express();
+
+// Trust proxy
 app.enable("trust proxy");
+
+// Enable body parsers
 app.use(express.json());
 app.use(express.text());
 app.use(express.urlencoded({ extended: false }));
@@ -61,70 +59,80 @@ app.use((req, res, next) => {
 });
 
 // Api routes
-// Get all payments
-app.get("/payments", async (req, res) => {
+
+// Get an order
+app.get("/order/:id", async (req, res) => {
     try {
-        res.json(await dbService.getPayments());
+        console.log("[OrderService] Order get: ", req.params.id);
+        const result = await getOrder(req.params.id);
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Get a payment by order id
-app.get("/payment/:orderId", async (req, res) => {
+// Get all orders
+app.get("/order", async (req, res) => {
     try {
-        res.json(await dbService.getPaymentByOrderId(req.params.orderId));
+        console.log("[OrderService] Order get all");
+        const result = await getAllOrders();
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Manually process a payment (handy for testing via Postman)
-app.post("/payment/process", async (req, res) => {
+// Get all event logs
+app.get("/event", async (req, res) => {
     try {
-        const payment = await startPayment(req.body.order, req.body.products);
-        res.json(payment);
+        console.log("[OrderService] Event logs get all");
+        const result = await dbService.getEventLogs();
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
+// Get external data
+app.get("/customerData", async (req, res) => {
+    try {
+        const customers = await excelReader.readExcelFile(0);
+        res.json(customers);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to read customer data" });
+    }
+});
+
+// Disable powered by header for security reasons
 app.disable("x-powered-by");
 
 // Start listening on port
-app.listen(5001, "0.0.0.0", async () => {
-    console.log(`[App] Running on: 0.0.0.0:` + 5001);
+app.listen(5010, "0.0.0.0", async () => {
+    console.log(`[App] Running on: 0.0.0.0:` + 5010);
 });
 
 // Functions
-// Start a payment for an order
-const startPayment = async (order, products) => {
-    console.log(`[PaymentService] Processing payment for order ${order.orderId}...`);
+// Get a order
+async function getOrder(orderId) {
+    console.log(`[OrderService] Getting order ${orderId}`);
 
-    // Create and process the payment in the database
-    const payment = await dbService.processPayment(order, products);
+    // Get the order from the database
+    const order = await dbService.getOrder(orderId);
+    console.log(`Order: ${order}`);
 
-    // Publish event back to the order service so the order status is updated
-    await publishMessage(
-        "local_exchange",
-        "order_service",
-        "payment_completed",
-        "update_status",
-        {
-            orderId: order.orderId,
-            orderStatus: "Paid"
-        }
-    );
+    return order;
+}
 
-    console.log(`[PaymentService] Payment ${payment.paymentId} completed and event published`);
-    return payment;
-};
+// Get a order
+async function getAllOrders() {
+    console.log(`[OrderService] Getting all orders`);
 
-// Delete a payment for an order
-const deletePayment = async (orderId) => {
-    console.log(`[PaymentService] Deleting payment for order ${orderId}`);
-    await dbService.deletePayment(orderId);
-};
+    // Get the order from the database
+    const orders = await dbService.getAllOrders();
+    console.log(`Orders: ${orders}`);
+
+    return orders;
+}
 
 // Create a new channel
 async function createChannel(queueName, sourceName, pattern) {
@@ -147,6 +155,7 @@ async function createChannel(queueName, sourceName, pattern) {
 
     // Assert the exchange
     await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
+
 
     // Assert the queue
     await rabbitmqChannel.assertQueue(queueName, { durable: true });
@@ -174,4 +183,25 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
         ),
         { persistent: true }
     );
+}
+
+// Handel incomming messages
+async function handelMessage(json) {
+    const job = json.meta.job;
+
+    // Handle get order
+    if (job === "get order") {
+        // Get the order
+        let order = await dbService.getOrder(json.data.orderId);
+
+        // Add the event to history
+        const date = new Date()
+        const log = await dbService.createEventLog({
+            name: `Get order at ${date}`,
+            description: `Get order with id ${json.data.orderId} at ${date}`,
+            date: date
+        })
+
+        console.log(`Updated order: ${order}`)
+    }
 }

@@ -31,11 +31,27 @@ services:
             DB_USER: root
             DB_PASS: root
             DB_NAME: OrderServiceDB
+        restart: unless-stopped
+        ports:
+            - "5000:5000"
+        depends_on:
+            rabbitmq:
+                condition: service_healthy
+
+    orderread:
+        build:
+            context: ./orderRead
+        environment:
+            RABBITMQ_URL: amqp://rabbitmq
+            DB_HOST: mysql
+            DB_USER: root
+            DB_PASS: root
+            DB_NAME: OrderServiceDB
         volumes:
             - ./customer_data.csv:/app/customer_data.csv
         restart: unless-stopped
         ports:
-            - "5000:5000"
+            - "5010:5010"
         depends_on:
             rabbitmq:
                 condition: service_healthy
@@ -68,6 +84,7 @@ services:
         restart: unless-stopped
         ports:
             - "5001:5001"
+
     catalog:
         build:
             context: ./catalog

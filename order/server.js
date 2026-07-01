@@ -3,7 +3,6 @@ const amqp = require("amqplib");
 const express = require("express");
 const rabbitmqUrl = process.env.RABBITMQ_URL || "amqp://localhost";
 const dbService = require("./dbService");
-const excelReader = require("./excelReader");
 
 // Global variables
 let rabbitmqChannel = null;
@@ -81,17 +80,6 @@ app.put("/order", async (req, res) => {
     }
 });
 
-// Get an order
-app.get("/order/:id", async (req, res) => {
-    try {
-        console.log("[OrderService] Order get: ", req.params.id);
-        const result = await getOrder(req.params.id);
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // Delete an order
 app.delete("/order/:id", async (req, res) => {
     try {
@@ -100,27 +88,6 @@ app.delete("/order/:id", async (req, res) => {
         res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
-    }
-});
-
-// Get a event log
-app.get("/event", async (req, res) => {
-    try {
-        console.log("[OrderService] Event logs get all");
-        const result = await dbService.getEventLogs();
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get external data
-app.get("/customerData", async (req, res) => {
-    try {
-        const customers = await excelReader.readExcelFile(0);
-        res.json(customers);
-    } catch (err) {
-        res.status(500).json({ error: "Failed to read customer data" });
     }
 });
 
@@ -238,18 +205,6 @@ const deleteOrder = async (orderId) => {
     console.log(`[OrderService] Order deleted and event published`);
 }
 
-// Get a order
-const getOrder = async (orderId) => {
-    console.log(`[OrderService] Getting order ${orderId}`);
-
-    // Get the order from the database
-    const order = await dbService.getOrder(orderId);
-
-    console.log(`Order: ${order}`);
-
-    return order;
-}
-
 // Create a new channel
 async function createChannel(queueName, sourceName, pattern) {
     // Connect to rabbitMQ (retry until available, so we don't crash on a slow broker startup)
@@ -306,7 +261,7 @@ async function handelMessage(json) {
     const job = json.meta.job;
 
     // Handle update product
-    if (json.meta.job === "update_product") {
+    if (job === "update_product") {
         // Update the product
         let product = await dbService.updateProduct(json.data);
 
@@ -322,7 +277,7 @@ async function handelMessage(json) {
     }
 
     // Handle update costumer
-    if (json.meta.job === "update_costumer") {
+    if (job === "update_costumer") {
         // Update the costumer
         let costumer = await dbService.updateCostumer(json.data);
 
@@ -338,7 +293,7 @@ async function handelMessage(json) {
     }
 
     // Handle add product
-    if (json.meta.job === "add_product") {
+    if (job === "add_product") {
         // Create a product
         const product = await dbService.createProduct(json.data);
 
@@ -354,7 +309,7 @@ async function handelMessage(json) {
     }
 
     // Handle add costumer
-    if (json.meta.job === "add_costumer") {
+    if (job === "add_costumer") {
         // Create a costumer
         const costumer = await dbService.createCostumer(json.data);
 
@@ -370,7 +325,7 @@ async function handelMessage(json) {
     }
 
     // Handle costumer deletion
-    if (json.meta.job === "delete_costumer") {
+    if (job === "delete_costumer") {
         //Delete a costumer
         const deletedCostumer = await dbService.deleteCostumer(json.data);
 
@@ -386,7 +341,7 @@ async function handelMessage(json) {
     }
 
     // Handle product deletion
-    if (json.meta.job === "delete_product") {
+    if (job === "delete_product") {
         //Delete a product
         const deletedProduct = await dbService.deleteProduct(json.data);
 
@@ -402,7 +357,7 @@ async function handelMessage(json) {
     }
 
     // Handle update the order status
-    if (json.meta.job === "update_status") {
+    if (job === "update_status") {
         // Update the order status
         const order = await dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
 
