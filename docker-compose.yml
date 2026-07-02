@@ -44,7 +44,7 @@ services:
             DB_HOST: mysql
             DB_USER: root
             DB_PASS: root
-            DB_NAME: OrderServiceDB
+            DB_NAME: OrderServiceReadDB
         volumes:
             - ./customer_data.csv:/app/customer_data.csv
         restart: unless-stopped

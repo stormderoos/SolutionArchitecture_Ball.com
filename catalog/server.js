@@ -89,6 +89,18 @@ async function publishToService(targetQueue, event, job, data) {
 // Catalog is the upstream owner of products. Order and Warehouse are downstream
 // contexts that keep a local product replica (keyed on the same productId).
 async function publishProductEvent(event, job, product) {
+    if (product.description === null) {
+        product.description = "Product description";
+    }
+
+    if (product.manufacturer === null) {
+        product.manufacturer = "Product manufacturer";
+    }
+
+    if (product.amountStored === null) {
+        product.amountStored = 0;
+    }
+
     await publishToService("order_service", event, job, product);
     await publishToService("warehouse_service", event, job, product);
 }

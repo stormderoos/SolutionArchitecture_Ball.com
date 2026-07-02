@@ -10,20 +10,20 @@ let rabbitmqChannel = null;
 
 // Main application loop
 const run = async () => {
-    await createChannel("order_write_service", "local_exchange", "order_write_service");
+    await createChannel("order_read_service", "local_exchange", "order_read_service");
 
     // Consume messages
-    rabbitmqChannel.consume("order_write_service", async (message) => {
+    rabbitmqChannel.consume("order_read_service", async (message) => {
         const json = JSON.parse(message.content.toString());
 
-        console.log(`[OrderService][${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
+        console.log(`[OrderReadService] [${json.meta.uuid}] Received: ${JSON.stringify(json)}`);
 
         try {
             // Handel incomming messages
             await handelMessage(json);
         } catch (error) {
             // Log the error but do not crash the process or requeue forever (no poison-message loop)
-            console.error(`[OrderService] Error handling message ${json.meta.uuid}:`, error);
+            console.error(`[OrderReadService] Error handling message ${json.meta.uuid}:`, error);
         } finally {
             // Always remove the message from the queue
             rabbitmqChannel.ack(message);
@@ -59,19 +59,6 @@ app.use((req, res, next) => {
 });
 
 // Api routes
-
-// Event sourcing: get the event history of an order plus the state rebuilt by
-// replaying those events (demonstrates events as the source of truth).
-app.get("/order/:id/history", async (req, res) => {
-    try {
-        console.log("[OrderService] Order history: ", req.params.id);
-        const result = await dbService.getOrderHistory(req.params.id);
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // Get an order
 app.get("/order/:id", async (req, res) => {
     try {
@@ -87,18 +74,7 @@ app.get("/order/:id", async (req, res) => {
 app.get("/order", async (req, res) => {
     try {
         console.log("[OrderService] Order get all");
-        const result = await getAllOrders();
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get all event logs
-app.get("/event", async (req, res) => {
-    try {
-        console.log("[OrderService] Event logs get all");
-        const result = await dbService.getEventLogs();
+        const result = await dbService.getAllOrders();
         res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -135,7 +111,7 @@ async function getOrder(orderId) {
     return order;
 }
 
-// Get a order
+// Get all orders
 async function getAllOrders() {
     console.log(`[OrderService] Getting all orders`);
 
@@ -206,15 +182,10 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
 async function handelMessage(json) {
     const job = json.meta.job;
 
-    // Project an OrderCreated event
-    if (job === "order_created") {
-        await dbService.projectOrderCreated(json.data.orderId, json.data.customerId, json.data.orderStatus);
-        console.log(`[OrderRead] Projected OrderCreated for order ${json.data.orderId} (${json.data.orderStatus})`);
-    }
-
-    // Project an OrderStatusChanged event
-    if (job === "order_status_changed") {
-        await dbService.projectStatusChanged(json.data.orderId, json.data.orderStatus);
-        console.log(`[OrderRead] Projected status '${json.data.orderStatus}' for order ${json.data.orderId}`);
+    // Handel an OrderCreated event
+    if (job === "handel_event") {
+        console.log(`[OrderReadService] Recieved event: ${json.log.name}`);
+        await dbService.handelEvent(json.log);
+        console.log(`[OrderReadService] Event handeled`);
     }
 }

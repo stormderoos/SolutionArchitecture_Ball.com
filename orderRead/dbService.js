@@ -21,62 +21,46 @@ module.exports = {
         }
     },
 
-    // Get all event logs
-    async getEventLogs() {
-        try {
-            return await db.getEventLogs();
-        } catch (error) {
-            console.error("Error getting event logs:", error);
-            throw error;
-        }
+    // Create an order
+    async createOrder(order) {
+        return await db.createOrder(order);
     },
 
-    // CQRS projection: apply an OrderCreated event to the read model
-    async projectOrderCreated(orderId, customerId, orderStatus) {
-        try {
-            return await db.projectOrderCreated(orderId, customerId, orderStatus);
-        } catch (error) {
-            console.error("Error projecting order created:", error);
-            throw error;
-        }
+    // Updete an order
+    async updateOrder(order) {
+        return await db.updateOrder(order);
     },
 
-    // CQRS projection: apply an OrderStatusChanged event to the read model
-    async projectStatusChanged(orderId, orderStatus) {
-        try {
-            return await db.projectStatusChanged(orderId, orderStatus);
-        } catch (error) {
-            console.error("Error projecting status change:", error);
-            throw error;
-        }
-    },
-
-    // Event sourcing: read the event stream for an order and rebuild its current
-    // state purely by replaying the events (the events are the source of truth).
-    async getOrderHistory(orderId) {
-        try {
-            const events = await db.getOrderEvents(orderId);
-
-            let state = null;
-            for (const ev of events) {
-                const data = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
-
-                if (ev.eventType === "OrderCreated") {
-                    state = { orderId: ev.orderId, customerId: data.customerId, orderStatus: data.orderStatus };
-                } else if (ev.eventType === "OrderStatusChanged" && state) {
-                    state.orderStatus = data.orderStatus;
-                }
+    // Handel incoming event
+    async handelEvent(event) {
+        console.log(`[OrderReadService] Handel event: ${event.name}`)
+        if (event.name.includes("Create")) {
+            console.log(`[OrderReadService] Create order: ${event.data}`)
+            return await db.createOrder({
+                orderId: event.data.orderId,
+                orderStatus: event.data.orderStatus,
+                customerId: event.data.customerId
+            });
+        } else if (event.name.includes("Update")) {
+            console.log(`[OrderReadService] Update order: ${event.data}`)
+            // If there is no customer id than only update the status
+            if (event.data.customerId === null || event.data.customerId === undefined) {
+                console.log(`[OrderReadService] Update status`)
+                return await db.updateOrderStatus({
+                    orderId: event.data.orderId,
+                    orderStatus: event.data.orderStatus
+                });
+            } else {
+                console.log(`[OrderReadService] Update order`)
+                return await db.updateOrder({
+                    orderId: event.data.orderId,
+                    orderStatus: event.data.orderStatus,
+                    customerId: event.data.customerId
+                });
             }
-
-            return {
-                orderId: Number(orderId),
-                eventCount: events.length,
-                reconstructedState: state,
-                events
-            };
-        } catch (error) {
-            console.error("Error getting order history:", error);
-            throw error;
+        } else if (event.name.includes("Delete")) {
+            console.log(`[OrderReadService] Delete order: ${event.data}`)
+            return await db.deleteOrder(event.data.orderId);
         }
     }
 };

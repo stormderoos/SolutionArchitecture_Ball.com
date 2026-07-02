@@ -19,6 +19,7 @@ function createProduct(product, supplierId) {
         price: Number(product.price) || 0,
         weight: Number(product.weight) || 0
     };
+
     products.push(newProduct);
     supplierProducts.push({ supplierId: Number(supplierId), productId: newProduct.productId });
     return newProduct;

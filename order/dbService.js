@@ -69,7 +69,7 @@ module.exports = {
     async updateOrderStatus(orderId, orderStatus) {
         try {
             // Read the current status so we can enforce the forward-only invariant
-            const current = await db.getOrder(orderId);
+            let current = await db.getOrder(orderId);
             const currentStatus = current ? current.orderStatus : null;
 
             // Never move the status backwards: only apply the update if the new

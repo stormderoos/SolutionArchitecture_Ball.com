@@ -6,7 +6,7 @@ module.exports = {
     // NOT from the write-side Orders table.
     async getOrder(orderId) {
         const [rows] = await db.query(
-            "SELECT * FROM OrderReadModel WHERE orderId = ?",
+            "SELECT * FROM Orders WHERE orderId = ?",
             [orderId]
         );
 
@@ -16,46 +16,61 @@ module.exports = {
     // Get all orders (from the read model)
     async getAllOrders() {
         const [rows] = await db.query(
-            "SELECT * FROM OrderReadModel"
+            "SELECT * FROM Orders"
         );
 
         return rows;
     },
 
-    // Project an OrderCreated event into the read model (insert the order)
-    async projectOrderCreated(orderId, customerId, orderStatus) {
-        await db.query(
-            "INSERT INTO OrderReadModel (orderId, customerId, orderStatus, updatedAt) VALUES (?, ?, ?, ?) " +
-            "ON DUPLICATE KEY UPDATE customerId = VALUES(customerId), orderStatus = VALUES(orderStatus), updatedAt = VALUES(updatedAt)",
-            [orderId, customerId, orderStatus, new Date()]
-        );
-    },
-
-    // Project an OrderStatusChanged event into the read model (update the status)
-    async projectStatusChanged(orderId, orderStatus) {
-        await db.query(
-            "INSERT INTO OrderReadModel (orderId, orderStatus, updatedAt) VALUES (?, ?, ?) " +
-            "ON DUPLICATE KEY UPDATE orderStatus = VALUES(orderStatus), updatedAt = VALUES(updatedAt)",
-            [orderId, orderStatus, new Date()]
-        );
-    },
-
-    // Get all event logs
-    async getEventLogs() {
-        const [rows] = await db.query(
-            "SELECT * FROM EventLogs"
-        );
-
-        return rows;
-    },
-
-    // Event sourcing: get the full, ordered event stream for one order.
-    async getOrderEvents(orderId) {
-        const [rows] = await db.query(
-            "SELECT * FROM OrderEvents WHERE orderId = ? ORDER BY eventId ASC",
+    // Delete a order
+    async deleteOrder(orderId) {
+        // Delete a order
+        await db.query("DELETE FROM Orders WHERE orderId = ?",
             [orderId]
         );
 
-        return rows;
+        return true;
+    },
+
+    // Update a order
+    async updateOrder(order) {
+        // Update a order
+        await db.query(
+            "UPDATE Orders SET orderStatus = ?, customerId = ? WHERE orderId = ?",
+            [order.orderStatus, order.customerId, order.orderId]
+        );
+
+        return order;
+    },
+
+    // Update a order status
+    async updateOrderStatus(order) {
+        // Update a order status
+        await db.query(
+            "UPDATE Orders SET orderStatus = ? WHERE orderId = ?",
+            [order.orderStatus, order.orderId]
+        );
+
+        return order;
+    },
+
+    // Create a order
+    async createOrder(order) {
+        const orderStatus = "Order created";
+
+        // Creare the order
+        const [result] = await db.query(
+            "INSERT INTO Orders (orderId, orderStatus, customerId) VALUES (?, ?, ?)",
+            [order.orderId, orderStatus, order.customerId]
+        );
+
+        // Full created order to return
+        data = {
+            orderId: order.orderId,
+            orderStatus: orderStatus,
+            customerId: order.customerId
+        }
+
+        return data;
     }
 };

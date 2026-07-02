@@ -106,44 +106,41 @@ const createOrder = async (request) => {
     console.log(`[OrderService] Creating order...`);
 
     // Add order to database
-    const createdOrder = await dbService.createOrder(request.order, request.products)
-
-    // Set the data to send
-    const dataToSend = {
-        order: createdOrder,
-        products: request.products
-    }
-
-    // Publish the domain event to the read side (CQRS): the read model projects this
-    await publishMessage("local_exchange", "order_write_service", "order_created", "order_created", {
-        orderId: createdOrder.orderId,
-        customerId: createdOrder.customerId,
-        orderStatus: createdOrder.orderStatus
-    });
-
-    // Publish event to the warehouse service
-    await publishMessage("local_exchange", "warehouse_service", "order_created", "move_product", dataToSend);
-
-    // Publish event to the payment service
-    await publishMessage("local_exchange", "payment_service", "order_created", "start_payment", dataToSend);
-
-    // Publish event to the costumer service
-    await publishMessage("local_exchange", "costumer_service", "order_created", "add_order", dataToSend);
-
-    // Publish event to the shipment service
-    await publishMessage("local_exchange", "shipment_service", "order_created", "add_order", dataToSend);
+    // const createdOrder = await dbService.createOrder(request.order, request.products)
 
     // Add the event to history
     const date = new Date()
-    const log = dbService.createEventLog({
-        name: `Created order at ${date}`,
-        description: `Created a new order with order id ${createdOrder.orderId} at ${date}`,
-        date: date
+    const log = await dbService.createEventLog({
+        name: `Create order at ${date}`,
+        description: `Create a new order with order id ${request.order.orderId} at ${date}`,
+        date: date,
+        data: request.order
     })
 
-    console.log(`[OrderService] Order with id ${createdOrder.orderId} created and event published`);
+    // Set the data to send
+    const dataToSend = {
+        order: request.order,
+        products: request.products
+    }
 
-    return createdOrder;
+    // Publish event to the order read service
+    await publishMessage("local_exchange", "order_read_service", "order_created", "handel_event", dataToSend, log);
+
+    // Publish event to the warehouse service
+    await publishMessage("local_exchange", "warehouse_service", "order_created", "move_product", dataToSend, log);
+
+    // Publish event to the payment service
+    await publishMessage("local_exchange", "payment_service", "order_created", "start_payment", dataToSend, log);
+
+    // Publish event to the costumer service
+    await publishMessage("local_exchange", "costumer_service", "order_created", "add_order", dataToSend, log);
+
+    // Publish event to the shipment service
+    await publishMessage("local_exchange", "shipment_service", "order_created", "add_order", dataToSend, log);
+
+    console.log(`[OrderService] Order with id ${dataToSend.order.orderId} created and event published`);
+
+    return dataToSend;
 }
 
 // Update a order
@@ -151,63 +148,74 @@ const updateOrder = async (request) => {
     // Handle order update
     console.log(`[OrderService] Updateing order ${request.order.orderId}`);
 
-    // Update order in database
-    const updatedOrder = await dbService.updateOrder(request.order, request.products)
-
-    // Set the data to send
-    const dataToSend = updatedOrder
-
-    // Publish event to the warehouse service
-    await publishMessage("local_exchange", "warehouse_service", "order_updated", "update_pick_list", dataToSend);
-
-    // Publish event to the payment service
-    await publishMessage("local_exchange", "payment_service", "order_updated", "update_order", dataToSend);
-
-    // Publish event to the costumer service
-    await publishMessage("local_exchange", "costumer_service", "order_updated", "update_order", dataToSend);
-
-    // Publish event to the shipment service
-    await publishMessage("local_exchange", "shipment_service", "order_updated", "update_order", dataToSend);
-
     // Add the event to history
     const date = new Date()
-    const log = dbService.createEventLog({
-        name: `Updated order at ${date}`,
-        description: `Updated the order with order id ${updatedOrder.orderId} at ${date}`,
-        date: date
+    const log = await dbService.createEventLog({
+        name: `Update order at ${date}`,
+        description: `Update the order with order id ${request.order} at ${date}`,
+        date: date,
+        data: request.order
     })
+
+    // Update order in database
+    // const updatedOrder = await dbService.updateOrder(request.order, request.products)
+
+    // Set the data to send
+    const dataToSend = {
+        order: request.order,
+        products: request.products
+    }
+
+    // Publish event to the order read service
+    await publishMessage("local_exchange", "order_read_service", "order_updated", "handel_event", dataToSend, log);
+
+    // Publish event to the warehouse service
+    await publishMessage("local_exchange", "warehouse_service", "order_updated", "update_pick_list", dataToSend, log);
+
+    // Publish event to the payment service
+    await publishMessage("local_exchange", "payment_service", "order_updated", "update_order", dataToSend, log);
+
+    // Publish event to the costumer service
+    await publishMessage("local_exchange", "costumer_service", "order_updated", "update_order", dataToSend, log);
+
+    // Publish event to the shipment service
+    await publishMessage("local_exchange", "shipment_service", "order_updated", "update_order", dataToSend, log);
 
     console.log(`[OrderService] Order updated and event published`);
 
-    return updatedOrder;
+    return dataToSend;
 }
 
 // Delete a order
 const deleteOrder = async (orderId) => {
     // Delte the order from the database
-    deletedOrder = await dbService.deleteOrder(orderId);
+    // deletedOrder = await dbService.deleteOrder(orderId);
 
     // Set the data to send
     const dataToSend = {
         orderId: orderId
     }
 
-    // Publish event to the payment service
-    await publishMessage("local_exchange", "payment_service", "order_deleted", "delete_order", dataToSend);
-
-    // Publish event to the costumer service
-    await publishMessage("local_exchange", "costumer_service", "order_deleted", "delete_order", dataToSend);
-
-    // Publish event to the shipment service
-    await publishMessage("local_exchange", "shipment_service", "order_deleted", "delete_order", dataToSend);
-
     // Add the event to history
     const date = new Date()
-    const log = dbService.createEventLog({
-        name: `Deleted order at ${date}`,
-        description: `Delted the order with order id ${orderId} at ${date}`,
-        date: date
+    const log = await dbService.createEventLog({
+        name: `Delete order at ${date}`,
+        description: `Delete the order with order id ${dataToSend} at ${date}`,
+        date: date,
+        data: dataToSend
     })
+
+    // Publish event to the order read service
+    await publishMessage("local_exchange", "order_read_service", "order_deleted", "handel_event", dataToSend, log);
+
+    // Publish event to the payment service
+    await publishMessage("local_exchange", "payment_service", "order_deleted", "delete_order", dataToSend, log);
+
+    // Publish event to the costumer service
+    await publishMessage("local_exchange", "costumer_service", "order_deleted", "delete_order", dataToSend, log);
+
+    // Publish event to the shipment service
+    await publishMessage("local_exchange", "shipment_service", "order_deleted", "delete_order", dataToSend, log);
 
     console.log(`[OrderService] Order deleted and event published`);
 }
@@ -249,7 +257,7 @@ async function createChannel(queueName, sourceName, pattern) {
 }
 
 // Publish a message to another channel
-async function publishMessage(exchange, recivingChannel, event, job, data) {
+async function publishMessage(exchange, recivingChannel, event, job, data, log) {
     rabbitmqChannel.publish(
         exchange,
         recivingChannel,
@@ -260,7 +268,8 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
                     event: event,
                     job: job
                 },
-                data: data
+                data: data,
+                log: log
             })
         ),
         { persistent: true }
@@ -275,14 +284,15 @@ async function handelMessage(json) {
     // Handle update product (product replica from the Catalog upstream)
     if (job === "update_product") {
         // Upsert so the local replica stays in sync even if the create was missed
-        let product = await dbService.upsertProduct(json.data);
+        // let product = await dbService.upsertProduct(json.data);
 
         // Add the event to history
         const date = new Date()
         const log = await dbService.createEventLog({
             name: `Update product at ${date}`,
             description: `Update the product with id ${json.data.productId} at ${date}`,
-            date: date
+            date: date,
+            data: json.data
         })
 
         console.log(`Updated product: ${product}`)
@@ -291,62 +301,66 @@ async function handelMessage(json) {
     // Handle update costumer
     if (job === "update_costumer") {
         // Update the costumer
-        let costumer = await dbService.updateCostumer(json.data);
+        // let costumer = await dbService.updateCostumer(json.data);
 
         // Add the event to history
         const date = new Date()
         const log = await dbService.createEventLog({
             name: `Update costumer at ${date}`,
             description: `Update the costumer with id ${json.data.costumerId} at ${date}`,
-            date: date
+            date: date,
+            data: json.data
         })
 
-        console.log(`Updated costumer: ${costumer}`)
+        console.log(`Updated costumer: ${json.data}`)
     }
 
     // Handle add product (product replica from the Catalog upstream)
     if (job === "add_product") {
         // Upsert on the Catalog productId so the local copy keeps the same identity
-        const product = await dbService.upsertProduct(json.data);
+        // const product = await dbService.upsertProduct(json.data);
 
         // Add the event to history
         const date = new Date()
         const log = await dbService.createEventLog({
-            name: `Created product at ${date}`,
-            description: `Created the product with id ${product.productId} at ${date}`,
-            date: date
+            name: `Create product at ${date}`,
+            description: `Create the product with id ${json.data.productId} at ${date}`,
+            date: date,
+            data: json.data
         })
 
-        console.log(`[OrderService] Created product with id: ${product.productId}`)
+        console.log(`[OrderService] Created product with id: ${json.data.productId}`)
     }
 
     // Handle add costumer
     if (job === "add_costumer") {
         // Create a costumer
-        const costumer = await dbService.createCostumer(json.data);
+        // const costumer = await dbService.createCostumer(json.data);
 
         // Add the event to history
         const date = new Date()
         const log = await dbService.createEventLog({
-            name: `Created costumer at ${date}`,
-            description: `Created the costumer with id ${costumer.costumerId} at ${date}`,
-            date: date
+            name: `Create costumer at ${date}`,
+            description: `Create the costumer with id ${json.data.costumerId} at ${date}`,
+            date: date,
+            data: json.data
         })
 
-        console.log(`[OrderService] Created costumer with id: ${costumer.costumerId}`)
+        console.log(`[OrderService] Created costumer with id: ${json.data.costumerId}`)
     }
 
     // Handle costumer deletion
     if (job === "delete_costumer") {
         //Delete a costumer
-        const deletedCostumer = await dbService.deleteCostumer(json.data);
+        // const deletedCostumer = await dbService.deleteCostumer(json.data);
 
         // Add the event to history
         const date = new Date()
         const log = await dbService.createEventLog({
             name: `Delete costumer at ${date}`,
             description: `Delete the costumer with id ${json.data} at ${date}`,
-            date: date
+            date: date,
+            data: json.data
         })
 
         console.log(`[OrderService] Deleted costumer with id: ${json.data}`)
@@ -355,14 +369,15 @@ async function handelMessage(json) {
     // Handle product deletion
     if (job === "delete_product") {
         //Delete a product
-        const deletedProduct = await dbService.deleteProduct(json.data);
+        // const deletedProduct = await dbService.deleteProduct(json.data);
 
         // Add the event to history
         const date = new Date()
         const log = await dbService.createEventLog({
             name: `Delete product at ${date}`,
             description: `Delete the product with id ${json.data} at ${date}`,
-            date: date
+            date: date,
+            data: json.data
         })
 
         console.log(`[OrderService] Deleted product with id: ${json.data}`)
@@ -371,24 +386,20 @@ async function handelMessage(json) {
     // Handle update the order status
     if (job === "update_status") {
         // Update the order status (forward-only). result.applied tells us if it changed.
-        const result = await dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
+        // const result = await dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
 
-        if (result.applied) {
-            // Publish the domain event to the read side (CQRS): it updates its projection
-            await publishMessage("local_exchange", "order_write_service", "order_status_changed", "order_status_changed", {
-                orderId: result.orderId,
-                orderStatus: result.orderStatus
-            });
+        // Add the event to history
+        const date = new Date()
+        const log = await dbService.createEventLog({
+            name: `Update order status at ${date}`,
+            description: `Update the order status of the order with id ${json.data.orderId} at ${date}`,
+            date: date,
+            data: json.data
+        })
 
-            // Add the event to history
-            const date = new Date()
-            const log = await dbService.createEventLog({
-                name: `Update order status at ${date}`,
-                description: `Update the order status of the order with id ${result.orderId} at ${date}`,
-                date: date
-            })
+        // Publish event to the order read service
+        await publishMessage("local_exchange", "order_read_service", "order_status_updated", "handel_event", {}, log);
 
-            console.log(`[OrderService] Updated order status of order ${result.orderId} to ${result.orderStatus}`)
-        }
+        console.log(`[OrderService] Updated order status of order ${json.data.orderId} to ${json.data.orderStatus}`)
     }
 }

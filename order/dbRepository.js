@@ -8,18 +8,11 @@ module.exports = {
 
         // Creare the order
         const [result] = await db.query(
-            "INSERT INTO Orders (orderStatus, customerId) VALUES (?, ?)",
-            [orderStatus, order.customerId]
+            "INSERT INTO Orders (orderId, orderStatus, customerId) VALUES (?, ?, ?)",
+            [order.orderId, orderStatus, order.customerId]
         );
 
-        // Full created order to return
-        data = {
-            orderId: result.insertId,
-            orderStatus: orderStatus,
-            customerId: order.customerId
-        }
-
-        return data;
+        return order;
     },
 
     // Update a order
@@ -64,6 +57,7 @@ module.exports = {
         await db.query("DELETE FROM Orders WHERE orderId = ?",
             [orderId]
         );
+
         return true;
     },
 

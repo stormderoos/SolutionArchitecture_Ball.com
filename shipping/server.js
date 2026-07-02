@@ -196,7 +196,7 @@ async function handleMessage(json) {
             { orderId: order.orderId, orderStatus: "Shipment pending" }
         );
 
-        // Also tell Customer service so its local databaseis updated
+        // Also tell Customer service so its local database is updated
         await publishMessage(
             "local_exchange",
             "costumer_service",
@@ -227,6 +227,8 @@ async function handleMessage(json) {
         }
 
         await dbService.updateShipmentStatus(shipment.shipmentId, "Shipped");
+
+        console.error(`[ShippingService] TESTTESTTESTTEST`);
 
         // Tell Order management the order has been shipped
         await publishMessage(
