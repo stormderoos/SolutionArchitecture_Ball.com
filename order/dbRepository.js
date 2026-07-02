@@ -221,8 +221,8 @@ module.exports = {
     async createEventLog(eventLog) {
         // Create the event log
         const [result] = await db.query(
-            "INSERT INTO EventLogs (name, description, date) VALUES (?, ?, ?)",
-            [eventLog.name, eventLog.description, eventLog.date]
+            "INSERT INTO EventLogs (type, name, description, date, data) VALUES (?, ?, ?, ?, ?)",
+            [eventLog.type, eventLog.name, eventLog.description, eventLog.date, JSON.stringify(eventLog.data)]
         );
 
         // Add the generated eventLogsId to the eventLog object
@@ -231,13 +231,13 @@ module.exports = {
         return eventLog;
     },
 
-    // Event sourcing: append an event to the append-only order event store.
-    // These events are the source of truth from which the order state is rebuilt.
-    async appendOrderEvent(orderId, eventType, data) {
-        await db.query(
-            "INSERT INTO OrderEvents (orderId, eventType, data, createdAt) VALUES (?, ?, ?, ?)",
-            [orderId, eventType, JSON.stringify(data ?? {}), new Date()]
+    // Get all events
+    async getAllEvents() {
+        const [rows] = await db.query(
+            "SELECT * FROM EventLogs"
         );
+
+        return rows;
     },
 
     // Event sourcing: get the full, ordered event stream for one order.

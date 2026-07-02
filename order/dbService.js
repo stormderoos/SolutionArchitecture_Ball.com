@@ -32,12 +32,6 @@ module.exports = {
                 await db.createOrderProduct(createdOrder.orderId, op.productId, op.amount);
             }
 
-            // Event sourcing: record the creation as the first event of the order
-            await db.appendOrderEvent(createdOrder.orderId, "OrderCreated", {
-                orderStatus: createdOrder.orderStatus,
-                customerId: createdOrder.customerId
-            });
-
             return createdOrder;
         } catch (error) {
             console.error("Error creating order:", error);
@@ -83,9 +77,6 @@ module.exports = {
 
             // Update the order status (write model)
             await db.updateOrderStatus(orderId, orderStatus);
-
-            // Event sourcing: record the (forward) status change as an event
-            await db.appendOrderEvent(orderId, "OrderStatusChanged", { orderStatus });
 
             return { applied: true, orderId, orderStatus };
         } catch (error) {
@@ -220,6 +211,16 @@ module.exports = {
             return orderProducts;
         } catch (error) {
             console.error("Error deleting product:", error);
+            throw error;
+        }
+    },
+
+    // Get all events
+    async getAllEvents() {
+        try {
+            return await db.getAllEvents();
+        } catch (error) {
+            console.error("Error creating event log:", error);
             throw error;
         }
     },

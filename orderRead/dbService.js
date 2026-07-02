@@ -34,14 +34,14 @@ module.exports = {
     // Handel incoming event
     async handelEvent(event) {
         console.log(`[OrderReadService] Handel event: ${event.name}`)
-        if (event.name.includes("Create")) {
+        if (event.type.includes("Create") && event.name.includes("order")) {
             console.log(`[OrderReadService] Create order: ${event.data}`)
             return await db.createOrder({
                 orderId: event.data.orderId,
                 orderStatus: event.data.orderStatus,
                 customerId: event.data.customerId
             });
-        } else if (event.name.includes("Update")) {
+        } else if (event.type.includes("Update") && event.name.includes("order")) {
             console.log(`[OrderReadService] Update order: ${event.data}`)
             // If there is no customer id than only update the status
             if (event.data.customerId === null || event.data.customerId === undefined) {
@@ -58,7 +58,7 @@ module.exports = {
                     customerId: event.data.customerId
                 });
             }
-        } else if (event.name.includes("Delete")) {
+        } else if (event.type.includes("Delete") && event.name.includes("order")) {
             console.log(`[OrderReadService] Delete order: ${event.data}`)
             return await db.deleteOrder(event.data.orderId);
         }
