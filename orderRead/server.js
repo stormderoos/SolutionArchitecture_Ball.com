@@ -200,9 +200,7 @@ async function handelMessage(json) {
     const event = json.meta.event;
 
     // Handel an OrderCreated event
-    if (event === "order_deleted" || event === "order_updated" || event === "order_status_updated" || event === "order_created" || event === "history_event_send") {
-        console.log(`[OrderReadService] Recieved event: ${json.log.name}`);
-        await dbService.handelEvent(json.log);
-        console.log(`[OrderReadService] Event handeled`);
-    }
+    console.log(`[OrderReadService] Recieved event: ${json.log.name}`);
+    await dbService.handelEvent(json.log);
+    console.log(`[OrderReadService] Event handeled`);
 }
