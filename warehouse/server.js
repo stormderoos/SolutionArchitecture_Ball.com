@@ -9,7 +9,15 @@ let rabbitmqChannel = null;
 
 // Main application loop
 const run = async () => {
-    await createChannel("warehouse_service", "local_exchange", "warehouse_service");
+    //Events to subscribe to
+    const events = [
+        "order_created",
+        "order_updated",
+        "product_created",
+        "product_updated"
+    ]
+
+    await createChannel("warehouse_service", "local_exchange", events);
 
     // Consume messages
     rabbitmqChannel.consume("warehouse_service", async (message) => {
@@ -20,17 +28,17 @@ const run = async () => {
 
         try {
             // Handle order creation
-            if (json.meta.job === "move_product") {
+            if (json.meta.event === "order_created") {
                 await moveProduct(json.data.order.orderId, json.data.products);
             }
 
             // Handle order update
-            if (json.meta.job === "update_pick_list") {
+            if (json.meta.job === "order_updated") {
                 await dbService.updatePickList(json.data.order.orderId, json.data.orderProducts);
             }
 
             // Handle product replica from the Catalog (upstream owner of products)
-            if (json.meta.job === "add_product" || json.meta.job === "update_product") {
+            if (json.meta.job === "product_created" || json.meta.job === "product_updated") {
                 await dbService.upsertProduct(json.data);
             }
         } catch (error) {
@@ -99,25 +107,14 @@ const moveProduct = async (orderId, productsToPick) => {
     //Create a pick list to move the products to pick
     await dbService.createPickList(orderId, productsToPick);
 
-    // Publish event to the order service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "order_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "products_moved",
-                    job: "update_status"
-                },
-                data: {
-                    orderId: orderId,
-                    orderStatus: "Picking products"
-                }
-            })
-        ),
-        { persistent: true }
-    );
+    // Data to send
+    dataToSend = {
+        orderId: orderId,
+        orderStatus: "Picking products"
+    }
+
+    // Publish event to the shipment service
+    await publishMessage("local_exchange", "products_moved", dataToSend);
 
     console.log(`[WarehouseService] Products moved and event published`);
 }
@@ -130,45 +127,14 @@ const createPackage = async (orderId) => {
     //Create a package ready for shipment
     const package = await dbService.createPackage(orderId);
 
-    // Publish event to the order service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "order_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "package_created",
-                    job: "update_status"
-                },
-                data: {
-                    orderId: orderId,
-                    orderStatus: "Products picked"
-                }
-            })
-        ),
-        { persistent: true }
-    );
+    // Data to send
+    dataToSend = {
+        orderId: orderId,
+        orderStatus: "Products picked"
+    }
 
     // Publish event to the shipment service
-    rabbitmqChannel.publish(
-        "local_exchange",
-        "shipment_service",
-        Buffer.from(
-            JSON.stringify({
-                meta: {
-                    uuid: crypto.randomUUID(),
-                    event: "package_created",
-                    job: "send_shipment"
-                },
-                data: {
-                    orderId: orderId,
-                    orderStatus: "Products picked"
-                }
-            })
-        ),
-        { persistent: true }
-    );
+    await publishMessage("local_exchange", "package_created", dataToSend);
 
     console.log(`[WarehouseService] Package created and event published`);
 
@@ -176,9 +142,10 @@ const createPackage = async (orderId) => {
 }
 
 // Create a new channel
-async function createChannel(queueName, sourceName, pattern) {
+async function createChannel(queueName, exchangeName, events) {
     // Connect to rabbitMQ (retry until available, so we don't crash on a slow broker startup)
     let connection;
+
     for (let attempt = 1; ; attempt++) {
         try {
             connection = await amqp.connect(rabbitmqUrl);
@@ -198,14 +165,39 @@ async function createChannel(queueName, sourceName, pattern) {
     await rabbitmqChannel.prefetch(1);
 
     // Assert the exchange
-    await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
+    await rabbitmqChannel.assertExchange(exchangeName, "direct", { durable: true });
 
 
     // Assert the queue
     await rabbitmqChannel.assertQueue(queueName, { durable: true });
     console.log(`[BusManager] Queue asserted: ` + queueName);
 
-    // Bind the queue to the channel
-    await rabbitmqChannel.bindQueue(queueName, sourceName, pattern);
-    console.log(`[BusManager] Bound to routing key: ` + queueName);
+    // Subscribe to every event this service needs
+    for (const event of events) {
+        await rabbitmqChannel.bindQueue(
+            queueName,
+            exchangeName,
+            event
+        );
+
+        console.log(`[BusManager] Subscribed to ${event}`);
+    }
+}
+
+// Publish a message to the other channels
+async function publishMessage(exchange, event, data) {
+    rabbitmqChannel.publish(
+        exchange,
+        event,
+        Buffer.from(
+            JSON.stringify({
+                meta: {
+                    uuid: crypto.randomUUID(),
+                    event: event
+                },
+                data: data
+            })
+        ),
+        { persistent: true }
+    );
 }

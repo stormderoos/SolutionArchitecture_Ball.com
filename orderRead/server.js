@@ -10,7 +10,16 @@ let rabbitmqChannel = null;
 
 // Main application loop
 const run = async () => {
-    await createChannel("order_read_service", "local_exchange", "order_read_service");
+    //Events to subscribe to
+    const events = [
+        "order_deleted",
+        "order_updated",
+        "order_created",
+        "history_event_send",
+        "order_status_updated"
+    ]
+
+    await createChannel("order_read_service", "local_exchange", events);
 
     // Consume messages
     rabbitmqChannel.consume("order_read_service", async (message) => {
@@ -123,9 +132,10 @@ async function getAllOrders() {
 }
 
 // Create a new channel
-async function createChannel(queueName, sourceName, pattern) {
+async function createChannel(queueName, exchangeName, events) {
     // Connect to rabbitMQ (retry until available, so we don't crash on a slow broker startup)
     let connection;
+
     for (let attempt = 1; ; attempt++) {
         try {
             connection = await amqp.connect(rabbitmqUrl);
@@ -145,31 +155,38 @@ async function createChannel(queueName, sourceName, pattern) {
     await rabbitmqChannel.prefetch(1);
 
     // Assert the exchange
-    await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
+    await rabbitmqChannel.assertExchange(exchangeName, "direct", { durable: true });
 
 
     // Assert the queue
     await rabbitmqChannel.assertQueue(queueName, { durable: true });
     console.log(`[BusManager] Queue asserted: ` + queueName);
 
-    // Bind the queue to the channel
-    await rabbitmqChannel.bindQueue(queueName, sourceName, pattern);
-    console.log(`[BusManager] Bound to routing key: ` + queueName);
+    // Subscribe to every event this service needs
+    for (const event of events) {
+        await rabbitmqChannel.bindQueue(
+            queueName,
+            exchangeName,
+            event
+        );
+
+        console.log(`[BusManager] Subscribed to ${event}`);
+    }
 }
 
-// Publish a message to another channel
-async function publishMessage(exchange, recivingChannel, event, job, data) {
+// Publish a message to the other channels
+async function publishMessage(exchange, event, data, log) {
     rabbitmqChannel.publish(
         exchange,
-        recivingChannel,
+        event,
         Buffer.from(
             JSON.stringify({
                 meta: {
                     uuid: crypto.randomUUID(),
-                    event: event,
-                    job: job
+                    event: event
                 },
-                data: data
+                data: data,
+                log: log
             })
         ),
         { persistent: true }
@@ -180,10 +197,10 @@ async function publishMessage(exchange, recivingChannel, event, job, data) {
 // CQRS: the read side projects the order events (published by the write side) into
 // its own read model. The queries above read from that projection.
 async function handelMessage(json) {
-    const job = json.meta.job;
+    const event = json.meta.event;
 
     // Handel an OrderCreated event
-    if (job === "handel_event") {
+    if (event === "order_deleted" || event === "order_updated" || event === "order_status_updated" || event === "order_created" || event === "history_event_send") {
         console.log(`[OrderReadService] Recieved event: ${json.log.name}`);
         await dbService.handelEvent(json.log);
         console.log(`[OrderReadService] Event handeled`);

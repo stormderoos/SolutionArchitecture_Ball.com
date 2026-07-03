@@ -9,7 +9,21 @@ let rabbitmqChannel = null;
 
 // Main application loop
 const run = async () => {
-    await createChannel("order_service", "local_exchange", "order_service");
+    //Events to subscribe to
+    const events = [
+        "products_moved",
+        "shipment_dispatched",
+        "shipment_created",
+        "payment_completed",
+        "product_deleted",
+        "costumer_deleted",
+        "costumer_created",
+        "product_created",
+        "costumer_updated",
+        "product_updated"
+    ]
+
+    await createChannel("order_service", "local_exchange", events);
 
     // Consume messages
     rabbitmqChannel.consume("order_service", async (message) => {
@@ -119,6 +133,8 @@ const createOrder = async (request) => {
     // Add order to database
     const createdOrder = await dbService.createOrder(request.order, request.products)
 
+    console.log(`[OrderService] Order created`);
+
     // Add the event to history
     const date = new Date()
     const log = await dbService.createEventLog({
@@ -136,19 +152,7 @@ const createOrder = async (request) => {
     }
 
     // Publish event to the order read service
-    await publishMessage("local_exchange", "order_read_service", "order_created", "handel_event", dataToSend, log);
-
-    // Publish event to the warehouse service
-    await publishMessage("local_exchange", "warehouse_service", "order_created", "move_product", dataToSend, log);
-
-    // Publish event to the payment service
-    await publishMessage("local_exchange", "payment_service", "order_created", "start_payment", dataToSend, log);
-
-    // Publish event to the costumer service
-    await publishMessage("local_exchange", "costumer_service", "order_created", "add_order", dataToSend, log);
-
-    // Publish event to the shipment service
-    await publishMessage("local_exchange", "shipment_service", "order_created", "add_order", dataToSend, log);
+    await publishMessage("local_exchange", "order_created", dataToSend, log);
 
     console.log(`[OrderService] Order with id ${dataToSend.order.orderId} created and event published`);
 
@@ -160,6 +164,11 @@ const updateOrder = async (request) => {
     // Handle order update
     console.log(`[OrderService] Updateing order ${request.order.orderId}`);
 
+    // Update order in database
+    const updatedOrder = await dbService.updateOrder(request.order, request.products)
+
+    console.log(`[OrderService] Order updated`);
+
     // Add the event to history
     const date = new Date()
     const log = await dbService.createEventLog({
@@ -170,9 +179,6 @@ const updateOrder = async (request) => {
         data: request.order
     })
 
-    // Update order in database
-    const updatedOrder = await dbService.updateOrder(request.order, request.products)
-
     // Set the data to send
     const dataToSend = {
         order: request.order,
@@ -180,19 +186,7 @@ const updateOrder = async (request) => {
     }
 
     // Publish event to the order read service
-    await publishMessage("local_exchange", "order_read_service", "order_updated", "handel_event", dataToSend, log);
-
-    // Publish event to the warehouse service
-    await publishMessage("local_exchange", "warehouse_service", "order_updated", "update_pick_list", dataToSend, log);
-
-    // Publish event to the payment service
-    await publishMessage("local_exchange", "payment_service", "order_updated", "update_order", dataToSend, log);
-
-    // Publish event to the costumer service
-    await publishMessage("local_exchange", "costumer_service", "order_updated", "update_order", dataToSend, log);
-
-    // Publish event to the shipment service
-    await publishMessage("local_exchange", "shipment_service", "order_updated", "update_order", dataToSend, log);
+    await publishMessage("local_exchange", "order_updated", dataToSend, log);
 
     console.log(`[OrderService] Order updated and event published`);
 
@@ -203,6 +197,8 @@ const updateOrder = async (request) => {
 const deleteOrder = async (orderId) => {
     // Delte the order from the database
     deletedOrder = await dbService.deleteOrder(orderId);
+
+    console.log(`[OrderService] Order deleted`);
 
     // Set the data to send
     const dataToSend = {
@@ -220,16 +216,7 @@ const deleteOrder = async (orderId) => {
     })
 
     // Publish event to the order read service
-    await publishMessage("local_exchange", "order_read_service", "order_deleted", "handel_event", dataToSend, log);
-
-    // Publish event to the payment service
-    await publishMessage("local_exchange", "payment_service", "order_deleted", "delete_order", dataToSend, log);
-
-    // Publish event to the costumer service
-    await publishMessage("local_exchange", "costumer_service", "order_deleted", "delete_order", dataToSend, log);
-
-    // Publish event to the shipment service
-    await publishMessage("local_exchange", "shipment_service", "order_deleted", "delete_order", dataToSend, log);
+    await publishMessage("local_exchange", "order_deleted", dataToSend, log);
 
     console.log(`[OrderService] Order deleted and event published`);
 }
@@ -241,14 +228,15 @@ async function sendAllEvents() {
 
     for (const e of events) {
         // Publish event to the order read service
-        await publishMessage("local_exchange", "order_read_service", "order_created", "handel_event", dataToSend, e);
+        await publishMessage("local_exchange", "history_event_send", dataToSend, e);
     }
 }
 
 // Create a new channel
-async function createChannel(queueName, sourceName, pattern) {
+async function createChannel(queueName, exchangeName, events) {
     // Connect to rabbitMQ (retry until available, so we don't crash on a slow broker startup)
     let connection;
+
     for (let attempt = 1; ; attempt++) {
         try {
             connection = await amqp.connect(rabbitmqUrl);
@@ -264,34 +252,39 @@ async function createChannel(queueName, sourceName, pattern) {
     rabbitmqChannel = await connection.createChannel();
     console.log(`[BusManager] Channel created`);
 
-    // Fair dispatch: handle one message at a time. This serialises the status
-    // read-modify-write so concurrent status events can't cause a lost update.
+    // Fair dispatch: handle one message at a time.
     await rabbitmqChannel.prefetch(1);
 
     // Assert the exchange
-    await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
+    await rabbitmqChannel.assertExchange(exchangeName, "direct", { durable: true });
 
 
     // Assert the queue
     await rabbitmqChannel.assertQueue(queueName, { durable: true });
     console.log(`[BusManager] Queue asserted: ` + queueName);
 
-    // Bind the queue to the channel
-    await rabbitmqChannel.bindQueue(queueName, sourceName, pattern);
-    console.log(`[BusManager] Bound to routing key: ` + queueName);
+    // Subscribe to every event this service needs
+    for (const event of events) {
+        await rabbitmqChannel.bindQueue(
+            queueName,
+            exchangeName,
+            event
+        );
+
+        console.log(`[BusManager] Subscribed to ${event}`);
+    }
 }
 
-// Publish a message to another channel
-async function publishMessage(exchange, recivingChannel, event, job, data, log) {
+// Publish a message to the other channels
+async function publishMessage(exchange, event, data, log) {
     rabbitmqChannel.publish(
         exchange,
-        recivingChannel,
+        event,
         Buffer.from(
             JSON.stringify({
                 meta: {
                     uuid: crypto.randomUUID(),
-                    event: event,
-                    job: job
+                    event: event
                 },
                 data: data,
                 log: log
@@ -304,10 +297,10 @@ async function publishMessage(exchange, recivingChannel, event, job, data, log) 
 // Handel incomming messages
 async function handelMessage(json) {
     // Read the job type from the message meta (this line was missing -> ReferenceError: job is not defined)
-    const job = json.meta.job;
+    const event = json.meta.event;
 
     // Handle update product (product replica from the Catalog upstream)
-    if (job === "update_product") {
+    if (event === "product_updated") {
         // Upsert so the local replica stays in sync even if the create was missed
         let product = await dbService.upsertProduct(json.data);
 
@@ -325,7 +318,7 @@ async function handelMessage(json) {
     }
 
     // Handle update costumer
-    if (job === "update_costumer") {
+    if (event === "costumer_updated") {
         // Update the costumer
         let costumer = await dbService.updateCostumer(json.data);
 
@@ -343,7 +336,7 @@ async function handelMessage(json) {
     }
 
     // Handle add product (product replica from the Catalog upstream)
-    if (job === "add_product") {
+    if (event === "product_created") {
         // Upsert on the Catalog productId so the local copy keeps the same identity
         const product = await dbService.upsertProduct(json.data);
 
@@ -361,7 +354,7 @@ async function handelMessage(json) {
     }
 
     // Handle add costumer
-    if (job === "add_costumer") {
+    if (event === "costumer_created") {
         // Create a costumer
         // const costumer = await dbService.createCostumer(json.data);
 
@@ -379,7 +372,7 @@ async function handelMessage(json) {
     }
 
     // Handle costumer deletion
-    if (job === "delete_costumer") {
+    if (event === "costumer_deleted") {
         //Delete a costumer
         const deletedCostumer = await dbService.deleteCostumer(json.data);
 
@@ -397,7 +390,7 @@ async function handelMessage(json) {
     }
 
     // Handle product deletion
-    if (job === "delete_product") {
+    if (event === "product_deleted") {
         //Delete a product
         const deletedProduct = await dbService.deleteProduct(json.data);
 
@@ -415,7 +408,7 @@ async function handelMessage(json) {
     }
 
     // Handle update the order status
-    if (job === "update_status") {
+    if (event === "products_moved" || event === "shipment_dispatched" || event === "shipment_created" || event === "payment_completed") {
         // Update the order status (forward-only). result.applied tells us if it changed.
         const result = await dbService.updateOrderStatus(json.data.orderId, json.data.orderStatus);
 
@@ -430,7 +423,7 @@ async function handelMessage(json) {
         })
 
         // Publish event to the order read service
-        await publishMessage("local_exchange", "order_read_service", "order_status_updated", "handel_event", {}, log);
+        await publishMessage("local_exchange", "order_status_updated", { orderId: json.data.orderId, orderStatus: json.data.orderStatus }, log);
 
         console.log(`[OrderService] Updated order status of order ${json.data.orderId} to ${json.data.orderStatus}`)
     }

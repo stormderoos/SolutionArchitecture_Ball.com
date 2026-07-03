@@ -228,8 +228,6 @@ async function handleMessage(json) {
 
         await dbService.updateShipmentStatus(shipment.shipmentId, "Shipped");
 
-        console.error(`[ShippingService] TESTTESTTESTTEST`);
-
         // Tell Order management the order has been shipped
         await publishMessage(
             "local_exchange",
