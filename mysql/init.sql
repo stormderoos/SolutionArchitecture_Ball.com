@@ -154,7 +154,10 @@ CREATE TABLE Payment (
     method VARCHAR(20),
     amount DECIMAL(10,2),
     status VARCHAR(50),
-    date DATETIME
+    date DATETIME,
+    -- Idempotency: one payment per order. RabbitMQ is at-least-once, so the
+    -- same order event may arrive twice; this constraint stops a duplicate row.
+    UNIQUE KEY uq_payment_order (orderId)
 );
 
 -- ===== ShippingServiceDB =====
