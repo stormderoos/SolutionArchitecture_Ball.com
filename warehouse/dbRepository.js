@@ -32,6 +32,15 @@ module.exports = {
         return rows;
     },
 
+    // Get all products (warehouse items)
+    async getProducts() {
+        const [rows] = await db.query(
+            "SELECT * FROM Product"
+        );
+
+        return rows;
+    },
+
     // Get one pick list
     async getPickList(orderId, productId) {
         // Get all pick lists
@@ -86,7 +95,7 @@ module.exports = {
         await db.query(
             "INSERT INTO Product (productId, name, description, price, manufacturer, amountStored) " +
             "VALUES (?, ?, ?, ?, ?, ?) " +
-            "ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price)",
+            "ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price), description = VALUES(description), manufacturer = VALUES(manufacturer), amountStored = VALUES(amountStored)",
             [
                 product.productId,
                 product.name,
@@ -97,6 +106,6 @@ module.exports = {
             ]
         );
 
-        return { productId: product.productId, name: product.name, price: product.price ?? 0 };
+        return { productId: product.productId, name: product.name, price: product.price ?? 0, description: product.description ?? null, manufacturer: product.manufacturer ?? null, amountStored: product.amountStored ?? 0 };
     }
 };

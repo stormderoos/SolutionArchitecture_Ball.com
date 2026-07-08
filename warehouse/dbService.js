@@ -52,4 +52,15 @@ module.exports = {
             throw error;
         }
     }
+    ,
+
+    // Get all products (warehouse items)
+    async getAllProducts() {
+        try {
+            return await db.getProducts();
+        } catch (error) {
+            console.error("Error getting products:", error);
+            throw error;
+        }
+    }
 };
