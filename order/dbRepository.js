@@ -6,11 +6,24 @@ module.exports = {
     async createOrder(order) {
         const orderStatus = "Order created";
 
-        // Creare the order
-        const [result] = await db.query(
-            "INSERT INTO Orders (orderId, orderStatus, customerId) VALUES (?, ?, ?)",
-            [order.orderId, orderStatus, order.customerId]
-        );
+        // Create the order (write-side snapshot). Generate the id if the caller
+        // didn't provide one, so the aggregate always has an identity.
+        if (order.orderId) {
+            await db.query(
+                "INSERT INTO Orders (orderId, orderStatus, customerId) VALUES (?, ?, ?)",
+                [order.orderId, orderStatus, order.customerId]
+            );
+        } else {
+            const [result] = await db.query(
+                "INSERT INTO Orders (orderStatus, customerId) VALUES (?, ?)",
+                [orderStatus, order.customerId]
+            );
+            order.orderId = result.insertId;
+        }
+
+        // Expose the initial status so callers (and the published order_created
+        // event) carry it into the read model instead of leaving it null.
+        order.orderStatus = orderStatus;
 
         return order;
     },
@@ -238,6 +251,15 @@ module.exports = {
         );
 
         return rows;
+    },
+
+    // Event sourcing: append an immutable event to the order event store.
+    // OrderEvents is the SOURCE OF TRUTH; the Orders table is only a snapshot.
+    async appendOrderEvent(orderId, eventType, data) {
+        await db.query(
+            "INSERT INTO OrderEvents (orderId, eventType, data, createdAt) VALUES (?, ?, ?, ?)",
+            [orderId, eventType, JSON.stringify(data ?? {}), new Date()]
+        );
     },
 
     // Event sourcing: get the full, ordered event stream for one order.
