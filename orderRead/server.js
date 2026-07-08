@@ -10,13 +10,12 @@ let rabbitmqChannel = null;
 
 // Main application loop
 const run = async () => {
-    //Events to subscribe to
+    // Order events this read side subscribes to (to build its projection)
     const events = [
-        "order_deleted",
-        "order_updated",
         "order_created",
-        "history_event_send",
-        "order_status_updated"
+        "order_updated",
+        "order_status_updated",
+        "order_deleted"
     ]
 
     await createChannel("order_read_service", "local_exchange", events);
@@ -196,11 +195,21 @@ async function publishMessage(exchange, event, data, log) {
 // Handel incomming messages
 // CQRS: the read side projects the order events (published by the write side) into
 // its own read model. The queries above read from that projection.
+// CQRS: the read side projects the order events (published by the write side)
+// into its own read model. Every query in this service reads from that projection.
 async function handelMessage(json) {
     const event = json.meta.event;
+    const data = json.data;
 
-    // Handel an OrderCreated event
-    console.log(`[OrderReadService] Recieved event: ${json.log.name}`);
-    await dbService.handelEvent(json.log);
-    console.log(`[OrderReadService] Event handeled`);
+    if (event === "order_created") {
+        await dbService.projectOrderCreated(data);
+    } else if (event === "order_updated") {
+        await dbService.projectOrderUpdated(data);
+    } else if (event === "order_status_updated") {
+        await dbService.projectStatusChanged(data);
+    } else if (event === "order_deleted") {
+        await dbService.projectOrderDeleted(data);
+    }
+
+    console.log(`[OrderReadService] Projected '${event}' for order ${data.orderId}`);
 }

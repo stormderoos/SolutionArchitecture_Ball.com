@@ -71,17 +71,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// Fill the read database
-app.post("/event", async (req, res) => {
-    try {
-        console.log("[OrderService] Send all events to fill a database");
-        const result = await sendAllEvents();
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // Api routes
 // Create an order
 app.post("/order", async (req, res) => {
@@ -110,6 +99,18 @@ app.delete("/order/:id", async (req, res) => {
     try {
         console.log("[OrderService] Order delete: ", req.params.id);
         const result = await deleteOrder(req.params.id);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Event sourcing: return the full event stream of an order plus the state
+// rebuilt purely by replaying those events (proves events are the source of truth).
+app.get("/order/:id/history", async (req, res) => {
+    try {
+        console.log("[OrderService] Order history: ", req.params.id);
+        const result = await dbService.getOrderHistory(req.params.id);
         res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -151,8 +152,12 @@ const createOrder = async (request) => {
         products: request.products
     }
 
-    // Publish event to the order read service
-    await publishMessage("local_exchange", "order_created", dataToSend, log);
+    // Publish a clean event to the read side (CQRS): it projects this into its read model
+    await publishMessage("local_exchange", "order_created", {
+        orderId: createdOrder.orderId,
+        customerId: createdOrder.customerId,
+        orderStatus: createdOrder.orderStatus
+    });
 
     console.log(`[OrderService] Order with id ${dataToSend.order.orderId} created and event published`);
 
@@ -185,8 +190,12 @@ const updateOrder = async (request) => {
         products: request.products
     }
 
-    // Publish event to the order read service
-    await publishMessage("local_exchange", "order_updated", dataToSend, log);
+    // Publish a clean event to the read side (CQRS)
+    await publishMessage("local_exchange", "order_updated", {
+        orderId: request.order.orderId,
+        customerId: request.order.customerId,
+        orderStatus: request.order.orderStatus
+    });
 
     console.log(`[OrderService] Order updated and event published`);
 
@@ -215,21 +224,10 @@ const deleteOrder = async (orderId) => {
         data: dataToSend
     })
 
-    // Publish event to the order read service
-    await publishMessage("local_exchange", "order_deleted", dataToSend, log);
+    // Publish a clean event to the read side (CQRS)
+    await publishMessage("local_exchange", "order_deleted", { orderId: orderId });
 
     console.log(`[OrderService] Order deleted and event published`);
-}
-
-// Fill the read database
-async function sendAllEvents() {
-    const events = await dbService.getAllEvents();
-    const dataToSend = {};
-
-    for (const e of events) {
-        // Publish event to the order read service
-        await publishMessage("local_exchange", "history_event_send", dataToSend, e);
-    }
 }
 
 // Create a new channel
@@ -422,8 +420,8 @@ async function handelMessage(json) {
             data: json.data
         })
 
-        // Publish event to the order read service
-        await publishMessage("local_exchange", "order_status_updated", { orderId: json.data.orderId, orderStatus: json.data.orderStatus }, log);
+        // Publish a clean event to the read side (CQRS)
+        await publishMessage("local_exchange", "order_status_updated", { orderId: json.data.orderId, orderStatus: json.data.orderStatus });
 
         console.log(`[OrderService] Updated order status of order ${json.data.orderId} to ${json.data.orderStatus}`)
     }

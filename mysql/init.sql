@@ -51,6 +51,16 @@ CREATE TABLE EventLogs (
     data JSON
 );
 
+-- Event sourcing: append-only event store for orders (schema owned by init.sql,
+-- so the application account only needs DML rights -> principle of least privilege).
+CREATE TABLE OrderEvents (
+    eventId INT AUTO_INCREMENT PRIMARY KEY,
+    orderId INT NOT NULL,
+    eventType VARCHAR(50) NOT NULL,
+    data JSON,
+    createdAt DATETIME NOT NULL
+);
+
 
 -- ===== OrderServiceReadDB =====
 
@@ -1278,13 +1288,8 @@ WHERE NOT EXISTS (SELECT 1 FROM Orders);
 INSERT INTO Orders (orderStatus, customerId)
 SELECT 'Picking prodcuts', 2;
 
--- Seed Orders table
-INSERT INTO OrderReadModel (orderStatus, customerId)
-SELECT 'Picking prodcuts', 1
-WHERE NOT EXISTS (SELECT 1 FROM OrderReadModel);
-
-INSERT INTO OrderReadModel (orderStatus, customerId)
-SELECT 'Picking prodcuts', 2;
+-- (Removed broken OrderReadModel seed: that table is never created and is not used
+--  by the read side. The read model IS the Orders table in OrderServiceReadDB.)
 
 -- Seed OrderProduct table
 INSERT INTO OrderProduct (orderId, productId, amount)
@@ -1308,7 +1313,7 @@ SELECT 2, 3, 10;
 
 -- Seed EventLogs table
 
-INSERT INTO EventLogs (name, description, date, data)
+INSERT INTO EventLogs (type, name, description, date, data)
 VALUES (
     'Create',
     'Create order at 2026-07-03 17:48:15',
@@ -1333,3 +1338,27 @@ VALUES (
         'customerId', 2
     )
 );
+
+-- =====================================================================
+-- Principle of least privilege
+-- The application services must NOT connect as root. Each service gets its
+-- own database user with ONLY DML rights (SELECT/INSERT/UPDATE/DELETE) on
+-- its OWN database -- no DDL (CREATE/ALTER/DROP), and no access to other
+-- services' data. The schema itself is owned by this init script (run once
+-- as root during database initialization), not by the application users.
+-- =====================================================================
+CREATE USER IF NOT EXISTS 'order_app'@'%'     IDENTIFIED BY 'order_app_pw';
+CREATE USER IF NOT EXISTS 'orderread_app'@'%' IDENTIFIED BY 'orderread_app_pw';
+CREATE USER IF NOT EXISTS 'warehouse_app'@'%' IDENTIFIED BY 'warehouse_app_pw';
+CREATE USER IF NOT EXISTS 'customer_app'@'%'  IDENTIFIED BY 'customer_app_pw';
+CREATE USER IF NOT EXISTS 'shipping_app'@'%'  IDENTIFIED BY 'shipping_app_pw';
+CREATE USER IF NOT EXISTS 'payment_app'@'%'   IDENTIFIED BY 'payment_app_pw';
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON OrderServiceDB.*     TO 'order_app'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON OrderServiceReadDB.* TO 'orderread_app'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON WarehouseServiceDB.* TO 'warehouse_app'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON CustomerServiceDB.*  TO 'customer_app'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON ShippingServiceDB.*  TO 'shipping_app'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON PaymentServiceDB.*   TO 'payment_app'@'%';
+
+FLUSH PRIVILEGES;

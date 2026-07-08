@@ -54,6 +54,18 @@ module.exports = {
         return order;
     },
 
+    // Insert or update an order in the read model. Idempotent, because an event
+    // may be delivered more than once (RabbitMQ is at-least-once).
+    async upsertOrder(orderId, customerId, orderStatus) {
+        await db.query(
+            "INSERT INTO Orders (orderId, customerId, orderStatus) VALUES (?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE customerId = VALUES(customerId), orderStatus = VALUES(orderStatus)",
+            [orderId, customerId, orderStatus]
+        );
+
+        return { orderId, customerId, orderStatus };
+    },
+
     // Create a order
     async createOrder(order) {
         const orderStatus = "Order created";

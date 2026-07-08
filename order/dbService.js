@@ -20,6 +20,24 @@ function statusRank(status) {
     return ORDER_STATUS_FLOW.indexOf(status);
 }
 
+// Event sourcing: rebuild an order's current state PURELY by replaying its events.
+// This is what makes the events the source of truth (Fowler's test: you can throw
+// away the Orders snapshot and reconstruct the state from the event log alone).
+function replayEvents(events) {
+    let state = null;
+    for (const ev of events) {
+        const data = typeof ev.data === "string" ? JSON.parse(ev.data) : (ev.data || {});
+        if (ev.eventType === "OrderCreated") {
+            state = { orderId: ev.orderId, customerId: data.customerId, orderStatus: data.orderStatus || "Order created" };
+        } else if (ev.eventType === "OrderStatusChanged" && state) {
+            state.orderStatus = data.orderStatus;
+        } else if (ev.eventType === "OrderDeleted") {
+            state = null;
+        }
+    }
+    return state;
+}
+
 module.exports = {
     // Create an order
     async createOrder(order, orderProducts) {
@@ -31,6 +49,12 @@ module.exports = {
             for (const op of orderProducts) {
                 await db.createOrderProduct(createdOrder.orderId, op.productId, op.amount);
             }
+
+            // Event sourcing: record the creation as the first immutable event (source of truth)
+            await db.appendOrderEvent(createdOrder.orderId, "OrderCreated", {
+                customerId: createdOrder.customerId,
+                orderStatus: "Order created"
+            });
 
             return createdOrder;
         } catch (error) {
@@ -62,8 +86,9 @@ module.exports = {
     //Update an order status
     async updateOrderStatus(orderId, orderStatus) {
         try {
-            // Read the current status so we can enforce the forward-only invariant
-            let current = await db.getOrder(orderId);
+            // Source of truth = the event store. Rebuild the current status by
+            // REPLAYING the order's events (not by reading the Orders snapshot).
+            const current = replayEvents(await db.getOrderEvents(orderId));
             const currentStatus = current ? current.orderStatus : null;
 
             // Never move the status backwards: only apply the update if the new
@@ -75,7 +100,10 @@ module.exports = {
                 return { applied: false, orderId, orderStatus: currentStatus };
             }
 
-            // Update the order status (write model)
+            // Event sourcing: append the state change as an immutable event (the truth)
+            await db.appendOrderEvent(orderId, "OrderStatusChanged", { orderStatus });
+
+            // Update the Orders snapshot (projection) for fast reads
             await db.updateOrderStatus(orderId, orderStatus);
 
             return { applied: true, orderId, orderStatus };
@@ -88,6 +116,13 @@ module.exports = {
     // Delete an order
     async deleteOrder(orderId) {
         try {
+            // Event sourcing: record the deletion as an immutable event FIRST.
+            // The append-only event store keeps the full history (incl. this
+            // OrderDeleted), so replayEvents() correctly reconstructs the order
+            // as "deleted" (state -> null). Only the read-optimised snapshot below
+            // is physically removed; the events are never hard-deleted.
+            await db.appendOrderEvent(orderId, "OrderDeleted", {});
+
             // Get the product order connections
             const orderProducts = await db.getOrderProductsByOrderId(orderId);
 
@@ -96,7 +131,7 @@ module.exports = {
                 db.deleteOrderProduct(op.orderId, op.productId);
             }
 
-            // Delete an order
+            // Delete the order snapshot (the event stream above stays intact)
             return await db.deleteOrder(orderId);
         } catch (error) {
             console.error("Error deleting order:", error);
@@ -233,5 +268,21 @@ module.exports = {
             console.error("Error creating event log:", error);
             throw error;
         }
+    },
+
+    // Event sourcing: reconstruct the current state of an order purely from its events.
+    async rebuildOrderState(orderId) {
+        return replayEvents(await db.getOrderEvents(orderId));
+    },
+
+    // Event sourcing: return the full event stream + the state rebuilt from it.
+    async getOrderHistory(orderId) {
+        const events = await db.getOrderEvents(orderId);
+        return {
+            orderId: Number(orderId),
+            eventCount: events.length,
+            reconstructedState: replayEvents(events),
+            events
+        };
     }
 };

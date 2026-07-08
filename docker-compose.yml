@@ -1,6 +1,10 @@
 services:
     rabbitmq:
         image: rabbitmq:3.13-management
+        # Pre-create the Erlang cookie world-readable, then start RabbitMQ normally.
+        # Works around the recurring ".erlang.cookie: eacces" crash on Docker Desktop,
+        # where RabbitMQ could not read a root-owned mode-400 cookie file.
+        entrypoint: ["/bin/sh", "-c", "echo 'ballcomsecretcookie' > /var/lib/rabbitmq/.erlang.cookie && chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie && chmod 600 /var/lib/rabbitmq/.erlang.cookie && exec docker-entrypoint.sh rabbitmq-server"]
         ports:
             - "5672:5672"
             - "15672:15672"
@@ -9,6 +13,7 @@ services:
             interval: 10s
             timeout: 5s
             retries: 5
+            start_period: 40s
 
     mysql:
         image: mysql:8.0
@@ -26,8 +31,8 @@ services:
         environment:
             RABBITMQ_URL: amqp://rabbitmq
             DB_HOST: mysql
-            DB_USER: root
-            DB_PASS: root
+            DB_USER: order_app
+            DB_PASS: order_app_pw
             DB_NAME: OrderServiceDB
         restart: unless-stopped
         ports:
@@ -42,8 +47,8 @@ services:
         environment:
             RABBITMQ_URL: amqp://rabbitmq
             DB_HOST: mysql
-            DB_USER: root
-            DB_PASS: root
+            DB_USER: orderread_app
+            DB_PASS: orderread_app_pw
             DB_NAME: OrderServiceReadDB
         volumes:
             - ./customer_data.csv:/app/customer_data.csv
@@ -60,8 +65,8 @@ services:
         environment:
             RABBITMQ_URL: amqp://rabbitmq
             DB_HOST: mysql
-            DB_USER: root
-            DB_PASS: root
+            DB_USER: warehouse_app
+            DB_PASS: warehouse_app_pw
             DB_NAME: WarehouseServiceDB
         restart: unless-stopped
         ports:
@@ -76,8 +81,8 @@ services:
         environment:
             RABBITMQ_URL: amqp://rabbitmq
             DB_HOST: mysql
-            DB_USER: root
-            DB_PASS: root
+            DB_USER: payment_app
+            DB_PASS: payment_app_pw
             DB_NAME: PaymentServiceDB
         restart: unless-stopped
         ports:
@@ -104,8 +109,8 @@ services:
         environment:
             RABBITMQ_URL: amqp://rabbitmq
             DB_HOST: mysql
-            DB_USER: root
-            DB_PASS: root
+            DB_USER: customer_app
+            DB_PASS: customer_app_pw
             DB_NAME: CustomerServiceDB
         volumes:
             - ./customer_data.csv:/app/customer_data.csv
@@ -122,8 +127,8 @@ services:
         environment:
             RABBITMQ_URL: amqp://rabbitmq
             DB_HOST: mysql
-            DB_USER: root
-            DB_PASS: root
+            DB_USER: shipping_app
+            DB_PASS: shipping_app_pw
             DB_NAME: ShippingServiceDB
         restart: unless-stopped
         ports:
