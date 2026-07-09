@@ -270,5 +270,16 @@ module.exports = {
         );
 
         return rows;
+    },
+
+    // Event sourcing: the full, ordered event stream across ALL orders.
+    // Used to replay every event so a downstream read model can be rebuilt
+    // from scratch, purely from the event store.
+    async getAllOrderEvents() {
+        const [rows] = await db.query(
+            "SELECT * FROM OrderEvents ORDER BY eventId ASC"
+        );
+
+        return rows;
     }
 };

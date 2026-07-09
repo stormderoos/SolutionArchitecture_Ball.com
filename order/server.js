@@ -117,6 +117,21 @@ app.get("/order/:id/history", async (req, res) => {
     }
 });
 
+// Event sourcing: replay the ENTIRE event store onto the bus (the clean
+// replacement for the old sendAllEvents "fill read database"). Because the
+// OrderEvents store is the source of truth, re-emitting every event lets any
+// downstream read model rebuild itself from scratch -- no other input needed.
+// Demo: empty the read model, POST here, and it refills purely from events.
+app.post("/order/replay", async (req, res) => {
+    try {
+        console.log("[OrderService] Replaying all events onto the bus");
+        const replayed = await replayAllEvents();
+        res.json({ replayed });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Disable powered by header for security reasons
 app.disable("x-powered-by");
 
@@ -228,6 +243,38 @@ const deleteOrder = async (orderId) => {
     await publishMessage("local_exchange", "order_deleted", { orderId: orderId });
 
     console.log(`[OrderService] Order deleted and event published`);
+}
+
+// Event sourcing: re-emit every stored event as its bus event, in the original
+// order. The read side projects them exactly as if they were happening live, so
+// the read model is rebuilt purely from the event store -- nothing else needed.
+async function replayAllEvents() {
+    const events = await dbService.getAllOrderEvents();
+
+    for (const ev of events) {
+        // mysql2 may return a JSON column already parsed; handle both shapes
+        const data = typeof ev.data === "string" ? JSON.parse(ev.data) : (ev.data || {});
+
+        if (ev.eventType === "OrderCreated") {
+            await publishMessage("local_exchange", "order_created", {
+                orderId: ev.orderId,
+                customerId: data.customerId,
+                orderStatus: data.orderStatus
+            });
+        } else if (ev.eventType === "OrderStatusChanged") {
+            await publishMessage("local_exchange", "order_status_updated", {
+                orderId: ev.orderId,
+                orderStatus: data.orderStatus
+            });
+        } else if (ev.eventType === "OrderDeleted") {
+            await publishMessage("local_exchange", "order_deleted", {
+                orderId: ev.orderId
+            });
+        }
+    }
+
+    console.log(`[OrderService] Replayed ${events.length} events onto the bus`);
+    return events.length;
 }
 
 // Create a new channel
