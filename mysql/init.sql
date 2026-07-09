@@ -8,29 +8,6 @@ CREATE DATABASE IF NOT EXISTS ShippingServiceDB;
 CREATE DATABASE IF NOT EXISTS PaymentServiceDB;
 CREATE DATABASE IF NOT EXISTS CatalogServiceDB;
 
--- Create service accounts and grant privileges
-CREATE USER IF NOT EXISTS 'order_app'@'%' IDENTIFIED BY 'order_app_pw';
-GRANT ALL PRIVILEGES ON OrderServiceDB.* TO 'order_app'@'%';
-
-CREATE USER IF NOT EXISTS 'orderread_app'@'%' IDENTIFIED BY 'orderread_app_pw';
-GRANT ALL PRIVILEGES ON OrderServiceReadDB.* TO 'orderread_app'@'%';
-
-CREATE USER IF NOT EXISTS 'warehouse_app'@'%' IDENTIFIED BY 'warehouse_app_pw';
-GRANT ALL PRIVILEGES ON WarehouseServiceDB.* TO 'warehouse_app'@'%';
-
-CREATE USER IF NOT EXISTS 'customer_app'@'%' IDENTIFIED BY 'customer_app_pw';
-GRANT ALL PRIVILEGES ON CustomerServiceDB.* TO 'customer_app'@'%';
-
-CREATE USER IF NOT EXISTS 'shipping_app'@'%' IDENTIFIED BY 'shipping_app_pw';
-GRANT ALL PRIVILEGES ON ShippingServiceDB.* TO 'shipping_app'@'%';
-
-CREATE USER IF NOT EXISTS 'payment_app'@'%' IDENTIFIED BY 'payment_app_pw';
-GRANT ALL PRIVILEGES ON PaymentServiceDB.* TO 'payment_app'@'%';
-
-CREATE USER IF NOT EXISTS 'catalog_app'@'%' IDENTIFIED BY 'catalog_app_pw';
-GRANT ALL PRIVILEGES ON CatalogServiceDB.* TO 'catalog_app'@'%';
-
-FLUSH PRIVILEGES;
 
 -- ===== Create the database tables =====
 
@@ -286,14 +263,15 @@ WHERE NOT EXISTS (SELECT 1 FROM Carrier WHERE name = 'PostNL');
 USE WarehouseServiceDB;
 
 -- Seed Product table
-INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
-SELECT 'Ball', 9.99, 0.25, 'Standard ball', 'Ball Co', 100 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Ball');
+-- (weight removed, appears to be missing)
+INSERT INTO Product (name, price, description, manufacturer, amountStored)
+SELECT 'Ball', 9.99, 'Standard ball', 'Ball Co', 100 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Ball');
 
-INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
-SELECT 'Football', 12.99, 0.45, 'Outdoor football', 'Ball Co', 50 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Football');
+INSERT INTO Product (name, price, description, manufacturer, amountStored)
+SELECT 'Football', 12.99, 'Outdoor football', 'Ball Co', 50 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Football');
 
-INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
-SELECT 'Water bottle', 4.75, 0.30, 'Plastic water bottle', 'Hydration Partners', 200 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Water bottle');
+INSERT INTO Product (name, price, description, manufacturer, amountStored)
+SELECT 'Water bottle', 4.75, 'Plastic water bottle', 'Hydration Partners', 200 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Water bottle');
 
 -- Seed PickList table
 INSERT INTO PickList (orderId, productId, amount)
@@ -1435,6 +1413,7 @@ CREATE USER IF NOT EXISTS 'warehouse_app'@'%' IDENTIFIED BY 'warehouse_app_pw';
 CREATE USER IF NOT EXISTS 'customer_app'@'%'  IDENTIFIED BY 'customer_app_pw';
 CREATE USER IF NOT EXISTS 'shipping_app'@'%'  IDENTIFIED BY 'shipping_app_pw';
 CREATE USER IF NOT EXISTS 'payment_app'@'%'   IDENTIFIED BY 'payment_app_pw';
+CREATE USER IF NOT EXISTS 'catalog_app'@'%'  IDENTIFIED BY 'catalog_app_pw';
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON OrderServiceDB.*     TO 'order_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON OrderServiceReadDB.* TO 'orderread_app'@'%';
@@ -1442,5 +1421,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON WarehouseServiceDB.* TO 'warehouse_app'@
 GRANT SELECT, INSERT, UPDATE, DELETE ON CustomerServiceDB.*  TO 'customer_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON ShippingServiceDB.*  TO 'shipping_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON PaymentServiceDB.*   TO 'payment_app'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON CatalogServiceDB.*   TO 'catalog_app'@'%';
 
 FLUSH PRIVILEGES;
