@@ -5,6 +5,15 @@ module.exports = {
     // Process a payment for an order (forward- or after-pay)
     async processPayment(order, products) {
         try {
+            // Idempotency: a payment event may be delivered more than once
+            // (RabbitMQ is at-least-once). If this order already has a payment,
+            // return that one instead of creating a second.
+            const existing = await db.getPaymentByOrderId(order.orderId);
+            if (existing) {
+                console.log(`[PaymentService] Payment for order ${order.orderId} already exists, skipping`);
+                return existing;
+            }
+
             // Determine the payment method (default: forward-pay)
             const method = order.paymentMethod === "after" ? "after" : "forward";
 

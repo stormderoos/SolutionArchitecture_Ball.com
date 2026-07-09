@@ -2,15 +2,17 @@ const db = require("./db");
 
 module.exports = {
     // Database functions
-    // Create a payment
+    // Create a payment. Idempotent: the UNIQUE key on orderId guarantees one
+    // payment per order even if the same order event is delivered twice. On a
+    // duplicate we keep the existing row and return its id (LAST_INSERT_ID trick).
     async createPayment(payment) {
-        // Create a payment
         const [result] = await db.query(
-            "INSERT INTO Payment (orderId, customerId, method, amount, status, date) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO Payment (orderId, customerId, method, amount, status, date) VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE paymentId = LAST_INSERT_ID(paymentId)",
             [payment.orderId, payment.customerId, payment.method, payment.amount, payment.status, payment.date]
         );
 
-        // Add the generated paymentId to the payment object
+        // Add the generated (or existing) paymentId to the payment object
         payment.paymentId = result.insertId;
 
         return payment;

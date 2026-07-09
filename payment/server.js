@@ -9,7 +9,14 @@ let rabbitmqChannel = null;
 
 // Main application loop
 const run = async () => {
-    await createChannel("payment_service", "local_exchange", "payment_service");
+    // Pub/sub: this service SUBSCRIBES to order events by their name. It does
+    // not know who publishes them; it only reacts to what happened.
+    const events = [
+        "order_created", // a new order was placed -> process its payment
+        "order_deleted"  // the order was removed  -> delete its payment
+    ];
+
+    await createChannel("payment_service", "local_exchange", events);
 
     // Consume messages
     rabbitmqChannel.consume("payment_service", async (message) => {
@@ -19,14 +26,8 @@ const run = async () => {
         );
 
         try {
-            // Handle incoming jobs (sent by the order service)
-            if (json.meta.job === "start_payment") {
-                await startPayment(json.data.order, json.data.products);
-            }
-
-            if (json.meta.job === "delete_order") {
-                await deletePayment(json.data.orderId);
-            }
+            // Handle incoming events (dispatch on the event NAME, not the sender)
+            await handleMessage(json);
         } catch (error) {
             // Log the error but do not crash the process or requeue forever (no poison-message loop)
             console.error(`[PaymentService] Error handling message ${json.meta.uuid}:`, error);
@@ -36,6 +37,21 @@ const run = async () => {
         }
     });
 };
+
+// Handle incoming events (pub/sub). We route on json.meta.event -- the name of
+// the thing that happened -- so the sender and receiver only share an event
+// contract, not knowledge of each other.
+async function handleMessage(json) {
+    const event = json.meta.event;
+
+    if (event === "order_created") {
+        // Start (and settle) the payment for the newly created order
+        await startPayment(json.data, json.data.products || []);
+    } else if (event === "order_deleted") {
+        // Remove the payment that belonged to the deleted order
+        await deletePayment(json.data.orderId);
+    }
+}
 
 run();
 
@@ -104,19 +120,15 @@ const startPayment = async (order, products) => {
     // Create and process the payment in the database
     const payment = await dbService.processPayment(order, products);
 
-    // Publish event back to the order service so the order status is updated
-    await publishMessage(
-        "local_exchange",
-        "order_service",
-        "payment_completed",
-        "update_status",
-        {
-            orderId: order.orderId,
-            orderStatus: "Paid"
-        }
-    );
+    // Pub/sub: announce that the payment completed. We publish the EVENT, with
+    // the routing key = event name, without naming any receiver. Whoever cares
+    // (the order service) is subscribed to "payment_completed".
+    await publishMessage("local_exchange", "payment_completed", {
+        orderId: order.orderId,
+        orderStatus: "Paid"
+    });
 
-    console.log(`[PaymentService] Payment ${payment.paymentId} complerted and event published`);
+    console.log(`[PaymentService] Payment ${payment.paymentId} completed and event published`);
     return payment;
 };
 
@@ -127,7 +139,7 @@ const deletePayment = async (orderId) => {
 };
 
 // Create a new channel
-async function createChannel(queueName, sourceName, pattern) {
+async function createChannel(queueName, exchangeName, events) {
     // Connect to rabbitMQ (retry until available, so we don't crash on a slow broker startup)
     let connection;
     for (let attempt = 1; ; attempt++) {
@@ -149,28 +161,33 @@ async function createChannel(queueName, sourceName, pattern) {
     await rabbitmqChannel.prefetch(1);
 
     // Assert the exchange
-    await rabbitmqChannel.assertExchange(sourceName, "direct", { durable: true });
+    await rabbitmqChannel.assertExchange(exchangeName, "direct", { durable: true });
 
     // Assert the queue
     await rabbitmqChannel.assertQueue(queueName, { durable: true });
     console.log(`[BusManager] Queue asserted: ` + queueName);
 
-    // Bind the queue to the channel
-    await rabbitmqChannel.bindQueue(queueName, sourceName, pattern);
-    console.log(`[BusManager] Bound to routing key: ` + queueName);
+    // Pub/sub: subscribe by binding our queue to every event we care about.
+    // The routing key is the EVENT NAME, so we receive an event no matter who
+    // published it.
+    for (const event of events) {
+        await rabbitmqChannel.bindQueue(queueName, exchangeName, event);
+        console.log(`[BusManager] Subscribed to ${event}`);
+    }
 }
 
-// Publish a message to another channel
-async function publishMessage(exchange, recivingChannel, event, job, data) {
+// Publish an event to the exchange (pub/sub). The routing key IS the event
+// name, so the message reaches every queue that subscribed to that event --
+// the publisher never names a receiver.
+async function publishMessage(exchange, event, data) {
     rabbitmqChannel.publish(
         exchange,
-        recivingChannel,
+        event,
         Buffer.from(
             JSON.stringify({
                 meta: {
                     uuid: crypto.randomUUID(),
-                    event: event,
-                    job: job
+                    event: event
                 },
                 data: data
             })
