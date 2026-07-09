@@ -73,6 +73,18 @@ CREATE TABLE Orders (
     customerId INT
 );
 
+CREATE TABLE IF NOT EXISTS EventStore (
+    eventId INT AUTO_INCREMENT PRIMARY KEY,
+    eventType VARCHAR(100) NOT NULL,
+    eventName VARCHAR(100),
+    orderId INT,
+    customerId INT,
+    orderStatus VARCHAR(100),
+    meta JSON,
+    payload JSON,
+    createdAt DATETIME NOT NULL
+);
+
 -- ===== WarehouseServiceDB =====
 
 USE WarehouseServiceDB;

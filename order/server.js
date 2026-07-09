@@ -169,6 +169,8 @@ const createOrder = async (request) => {
 
     // Publish a clean event to the read side (CQRS): it projects this into its read model
     await publishMessage("local_exchange", "order_created", {
+        order: createdOrder,
+        products: request.products,
         orderId: createdOrder.orderId,
         customerId: createdOrder.customerId,
         orderStatus: createdOrder.orderStatus
@@ -207,6 +209,8 @@ const updateOrder = async (request) => {
 
     // Publish a clean event to the read side (CQRS)
     await publishMessage("local_exchange", "order_updated", {
+        order: updatedOrder,
+        products: request.products,
         orderId: request.order.orderId,
         customerId: request.order.customerId,
         orderStatus: request.order.orderStatus
@@ -257,6 +261,11 @@ async function replayAllEvents() {
 
         if (ev.eventType === "OrderCreated") {
             await publishMessage("local_exchange", "order_created", {
+                order: {
+                    orderId: ev.orderId,
+                    customerId: data.customerId,
+                    orderStatus: data.orderStatus
+                },
                 orderId: ev.orderId,
                 customerId: data.customerId,
                 orderStatus: data.orderStatus

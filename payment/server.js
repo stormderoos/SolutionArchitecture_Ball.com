@@ -46,10 +46,13 @@ async function handleMessage(json) {
 
     if (event === "order_created") {
         // Start (and settle) the payment for the newly created order
-        await startPayment(json.data, json.data.products || []);
+        const order = json.data.order || json.data;
+        const products = json.data.products || [];
+        await startPayment(order, products);
     } else if (event === "order_deleted") {
         // Remove the payment that belonged to the deleted order
-        await deletePayment(json.data.orderId);
+        const orderId = json.data.orderId || (json.data.order && json.data.order.orderId);
+        await deletePayment(orderId);
     }
 }
 

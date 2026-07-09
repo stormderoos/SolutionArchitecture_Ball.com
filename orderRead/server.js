@@ -89,6 +89,16 @@ app.get("/order", async (req, res) => {
     }
 });
 
+// Get all stored order events
+app.get("/event", async (req, res) => {
+    try {
+        const result = await dbService.getEvents();
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Get external data
 app.get("/customerData", async (req, res) => {
     try {
@@ -202,13 +212,13 @@ async function handelMessage(json) {
     const data = json.data;
 
     if (event === "order_created") {
-        await dbService.projectOrderCreated(data);
+        await dbService.projectOrderCreated(data, json.meta);
     } else if (event === "order_updated") {
-        await dbService.projectOrderUpdated(data);
+        await dbService.projectOrderUpdated(data, json.meta);
     } else if (event === "order_status_updated") {
-        await dbService.projectStatusChanged(data);
+        await dbService.projectStatusChanged(data, json.meta);
     } else if (event === "order_deleted") {
-        await dbService.projectOrderDeleted(data);
+        await dbService.projectOrderDeleted(data, json.meta);
     }
 
     console.log(`[OrderReadService] Projected '${event}' for order ${data.orderId}`);

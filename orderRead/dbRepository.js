@@ -1,6 +1,22 @@
 const db = require("./db");
 
 module.exports = {
+    async ensureEventStoreTable() {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS EventStore (
+                eventId INT AUTO_INCREMENT PRIMARY KEY,
+                eventType VARCHAR(100) NOT NULL,
+                eventName VARCHAR(100),
+                orderId INT,
+                customerId INT,
+                orderStatus VARCHAR(100),
+                meta JSON,
+                payload JSON,
+                createdAt DATETIME NOT NULL
+            )
+        `);
+    },
+
     // Database functions
     // CQRS read model: queries read from the projection that is built from events,
     // NOT from the write-side Orders table.
@@ -84,5 +100,39 @@ module.exports = {
         }
 
         return data;
+    },
+
+    async appendEvent(event) {
+        await this.ensureEventStoreTable();
+
+        const [result] = await db.query(
+            "INSERT INTO EventStore (eventType, eventName, orderId, customerId, orderStatus, meta, payload, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                event.eventType,
+                event.eventName,
+                event.orderId ?? null,
+                event.customerId ?? null,
+                event.orderStatus ?? null,
+                JSON.stringify(event.meta ?? {}),
+                JSON.stringify(event.payload ?? {}),
+                event.createdAt || new Date()
+            ]
+        );
+
+        return { eventId: result.insertId, ...event };
+    },
+
+    async getEvents() {
+        await this.ensureEventStoreTable();
+
+        const [rows] = await db.query(
+            "SELECT * FROM EventStore ORDER BY createdAt DESC, eventId DESC"
+        );
+
+        return rows.map((row) => ({
+            ...row,
+            meta: typeof row.meta === "string" ? JSON.parse(row.meta) : row.meta,
+            payload: typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload
+        }));
     }
 };

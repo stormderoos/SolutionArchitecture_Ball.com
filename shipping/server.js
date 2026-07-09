@@ -163,27 +163,29 @@ async function handleMessage(json) {
     // pick cheapest carrier and create shipment.
     // Publishes shipment_created (Order management and Customer service are subcsribed to this event)
     if (event === "order_created") {
-        const order = json.data.order;
+        const order = json.data.order || json.data;
+        const orderId = order?.orderId || json.data.orderId;
+        const customerId = order?.customerId || json.data.customerId;
 
-        if (!order || !order.orderId) {
+        if (!orderId) {
             console.error(`[ShippingService] order_created missing order data: ${JSON.stringify(json.data)}`);
             return;
         }
 
-        const { shipment, carrier } = await dbService.createShipment(order.orderId, order.customerId);
+        const { shipment, carrier } = await dbService.createShipment(orderId, customerId);
 
         await publishMessage("local_exchange", "shipment_created", {
-            orderId: order.orderId,
+            orderId: orderId,
             orderStatus: "Shipment pending"
         });
 
         const date = new Date();
         await dbService.createEventLog({
             name: `Shipment created at ${date}`,
-            description: `Shipment for order ${order.orderId} using ${carrier.name} (€${carrier.pricePerShipment})`,
+            description: `Shipment for order ${orderId} using ${carrier.name} (€${carrier.pricePerShipment})`,
             date: date
         });
-        console.log(`[ShippingService] Shipment created for order ${order.orderId} via ${carrier.name}`);
+        console.log(`[ShippingService] Shipment created for order ${orderId} via ${carrier.name}`);
     }
 
     // package_created: Warehouse finished packaging order
