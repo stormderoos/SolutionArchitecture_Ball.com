@@ -8,7 +8,6 @@ CREATE DATABASE IF NOT EXISTS ShippingServiceDB;
 CREATE DATABASE IF NOT EXISTS PaymentServiceDB;
 CREATE DATABASE IF NOT EXISTS CatalogServiceDB;
 
-
 -- ===== Create the database tables =====
 
 -- ===== OrderServiceDB =====
@@ -83,6 +82,7 @@ CREATE TABLE Product (
     name VARCHAR(255),
     description TEXT,
     price DECIMAL(10,2),
+    weight DECIMAL(10,2) DEFAULT 0,
     manufacturer VARCHAR(255),
     amountStored INT
 );
@@ -263,15 +263,14 @@ WHERE NOT EXISTS (SELECT 1 FROM Carrier WHERE name = 'PostNL');
 USE WarehouseServiceDB;
 
 -- Seed Product table
--- (weight removed, appears to be missing)
-INSERT INTO Product (name, price, description, manufacturer, amountStored)
-SELECT 'Ball', 9.99, 'Standard ball', 'Ball Co', 100 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Ball');
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Ball', 9.99, 0.25, 'Standard ball', 'Ball Co', 100 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Ball');
 
-INSERT INTO Product (name, price, description, manufacturer, amountStored)
-SELECT 'Football', 12.99, 'Outdoor football', 'Ball Co', 50 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Football');
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Football', 12.99, 0.45, 'Outdoor football', 'Ball Co', 50 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Football');
 
-INSERT INTO Product (name, price, description, manufacturer, amountStored)
-SELECT 'Water bottle', 4.75, 'Plastic water bottle', 'Hydration Partners', 200 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Water bottle');
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Water bottle', 4.75, 0.30, 'Plastic water bottle', 'Hydration Partners', 200 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Water bottle');
 
 -- Seed PickList table
 INSERT INTO PickList (orderId, productId, amount)
