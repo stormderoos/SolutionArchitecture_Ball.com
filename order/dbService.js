@@ -275,6 +275,12 @@ module.exports = {
         return replayEvents(await db.getOrderEvents(orderId));
     },
 
+    // Event sourcing: the full, ordered event stream across all orders,
+    // used to replay the whole history onto the bus.
+    async getAllOrderEvents() {
+        return await db.getAllOrderEvents();
+    },
+
     // Event sourcing: return the full event stream + the state rebuilt from it.
     async getOrderHistory(orderId) {
         const events = await db.getOrderEvents(orderId);
