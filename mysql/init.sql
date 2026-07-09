@@ -6,6 +6,31 @@ CREATE DATABASE IF NOT EXISTS WarehouseServiceDB;
 CREATE DATABASE IF NOT EXISTS CustomerServiceDB;
 CREATE DATABASE IF NOT EXISTS ShippingServiceDB;
 CREATE DATABASE IF NOT EXISTS PaymentServiceDB;
+CREATE DATABASE IF NOT EXISTS CatalogServiceDB;
+
+-- Create service accounts and grant privileges
+CREATE USER IF NOT EXISTS 'order_app'@'%' IDENTIFIED BY 'order_app_pw';
+GRANT ALL PRIVILEGES ON OrderServiceDB.* TO 'order_app'@'%';
+
+CREATE USER IF NOT EXISTS 'orderread_app'@'%' IDENTIFIED BY 'orderread_app_pw';
+GRANT ALL PRIVILEGES ON OrderServiceReadDB.* TO 'orderread_app'@'%';
+
+CREATE USER IF NOT EXISTS 'warehouse_app'@'%' IDENTIFIED BY 'warehouse_app_pw';
+GRANT ALL PRIVILEGES ON WarehouseServiceDB.* TO 'warehouse_app'@'%';
+
+CREATE USER IF NOT EXISTS 'customer_app'@'%' IDENTIFIED BY 'customer_app_pw';
+GRANT ALL PRIVILEGES ON CustomerServiceDB.* TO 'customer_app'@'%';
+
+CREATE USER IF NOT EXISTS 'shipping_app'@'%' IDENTIFIED BY 'shipping_app_pw';
+GRANT ALL PRIVILEGES ON ShippingServiceDB.* TO 'shipping_app'@'%';
+
+CREATE USER IF NOT EXISTS 'payment_app'@'%' IDENTIFIED BY 'payment_app_pw';
+GRANT ALL PRIVILEGES ON PaymentServiceDB.* TO 'payment_app'@'%';
+
+CREATE USER IF NOT EXISTS 'catalog_app'@'%' IDENTIFIED BY 'catalog_app_pw';
+GRANT ALL PRIVILEGES ON CatalogServiceDB.* TO 'catalog_app'@'%';
+
+FLUSH PRIVILEGES;
 
 -- ===== Create the database tables =====
 
@@ -192,9 +217,64 @@ CREATE TABLE EventLogs (
     date DATETIME
 );
 
+-- ===== CatalogServiceDB =====
+
+USE CatalogServiceDB;
+
+CREATE TABLE Supplier (
+    supplierId INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255)
+);
+
+CREATE TABLE Product (
+    productId INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255),
+    price DECIMAL(10,2) DEFAULT 0,
+    weight DECIMAL(10,2) DEFAULT 0,
+    description TEXT,
+    manufacturer VARCHAR(255),
+    amountStored INT DEFAULT 0
+);
+
+CREATE TABLE SupplierProducts (
+    supplierId INT,
+    productId INT,
+    PRIMARY KEY (supplierId, productId)
+);
+
+-- Seed catalog tables if empty
+INSERT INTO Supplier (name)
+SELECT 'Ball Supply Co.' WHERE NOT EXISTS (SELECT 1 FROM Supplier WHERE name = 'Ball Supply Co.');
+
+INSERT INTO Supplier (name)
+SELECT 'Sporting Goods BV' WHERE NOT EXISTS (SELECT 1 FROM Supplier WHERE name = 'Sporting Goods BV');
+
+INSERT INTO Supplier (name)
+SELECT 'Hydration Partners' WHERE NOT EXISTS (SELECT 1 FROM Supplier WHERE name = 'Hydration Partners');
+
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Ball', 9.99, 0.25, 'Standard ball', 'Ball Co', 100 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Ball');
+
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Football', 12.99, 0.45, 'Outdoor football', 'Ball Co', 50 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Football');
+
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Water bottle', 4.75, 0.30, 'Plastic water bottle', 'Hydration Partners', 200 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Water bottle');
+
+-- Link seeded products to suppliers (best-effort, ignore duplicates)
+INSERT INTO SupplierProducts (supplierId, productId)
+SELECT s.supplierId, p.productId FROM Supplier s JOIN Product p ON p.name IN ('Ball','Football') AND s.name = 'Ball Supply Co.'
+WHERE NOT EXISTS (SELECT 1 FROM SupplierProducts sp WHERE sp.supplierId = s.supplierId AND sp.productId = p.productId);
+
+INSERT INTO SupplierProducts (supplierId, productId)
+SELECT s.supplierId, p.productId FROM Supplier s JOIN Product p ON p.name = 'Water bottle' AND s.name = 'Hydration Partners'
+WHERE NOT EXISTS (SELECT 1 FROM SupplierProducts sp WHERE sp.supplierId = s.supplierId AND sp.productId = p.productId);
+
 -- ===== Insert data =====
 
 -- ===== ShippingServiceDB =====
+
+USE ShippingServiceDB;
 
 -- Seed Carrier table
 INSERT INTO Carrier (name, pricePerShipment)
@@ -206,15 +286,14 @@ WHERE NOT EXISTS (SELECT 1 FROM Carrier WHERE name = 'PostNL');
 USE WarehouseServiceDB;
 
 -- Seed Product table
-INSERT INTO Product (name, description, price, manufacturer, amountStored)
-SELECT 'Laptop', 'High-end gaming laptop', 1299.99, 'TechCorp', 50
-WHERE NOT EXISTS (SELECT 1 FROM Product);
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Ball', 9.99, 0.25, 'Standard ball', 'Ball Co', 100 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Ball');
 
-INSERT INTO Product (name, description, price, manufacturer, amountStored)
-SELECT 'Football', 'A orange football', 3.25, 'Nike', 100;
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Football', 12.99, 0.45, 'Outdoor football', 'Ball Co', 50 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Football');
 
-INSERT INTO Product (name, description, price, manufacturer, amountStored)
-SELECT 'Marker', 'A black permanent marker', 1, 'Hema', 500;
+INSERT INTO Product (name, price, weight, description, manufacturer, amountStored)
+SELECT 'Water bottle', 4.75, 0.30, 'Plastic water bottle', 'Hydration Partners', 200 WHERE NOT EXISTS (SELECT 1 FROM Product WHERE name = 'Water bottle');
 
 -- Seed PickList table
 INSERT INTO PickList (orderId, productId, amount)

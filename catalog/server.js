@@ -81,7 +81,9 @@ async function publishToService(targetQueue, event, job, data) {
         data
     };
 
-    rabbitmqChannel.publish(exchangeName, targetQueue, Buffer.from(JSON.stringify(payload)), {
+    // Publish using the event as routing key so all downstreams bound to the
+    // event receive the message (consistent with other services).
+    rabbitmqChannel.publish(exchangeName, event, Buffer.from(JSON.stringify(payload)), {
         persistent: true
     });
 }
@@ -89,17 +91,12 @@ async function publishToService(targetQueue, event, job, data) {
 // Catalog is the upstream owner of products. Order and Warehouse are downstream
 // contexts that keep a local product replica (keyed on the same productId).
 async function publishProductEvent(event, job, product) {
-    if (product.description === null) {
-        product.description = "Product description";
-    }
-
-    if (product.manufacturer === null) {
-        product.manufacturer = "Product manufacturer";
-    }
-
-    if (product.amountStored === null) {
-        product.amountStored = 0;
-    }
+    product.name ??= "Unnamed product";
+    product.price ??= 0;
+    product.weight ??= 0;
+    product.description ??= "Product description";
+    product.manufacturer ??= "Product manufacturer";
+    product.amountStored ??= 0;
 
     await publishToService("order_service", event, job, product);
     await publishToService("warehouse_service", event, job, product);

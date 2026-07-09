@@ -4,7 +4,7 @@ services:
         # Pre-create the Erlang cookie world-readable, then start RabbitMQ normally.
         # Works around the recurring ".erlang.cookie: eacces" crash on Docker Desktop,
         # where RabbitMQ could not read a root-owned mode-400 cookie file.
-        entrypoint: ["/bin/sh", "-c", "echo 'ballcomsecretcookie' > /var/lib/rabbitmq/.erlang.cookie && chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie && chmod 600 /var/lib/rabbitmq/.erlang.cookie && exec docker-entrypoint.sh rabbitmq-server"]
+        entrypoint: [ "/bin/sh", "-c", "echo 'ballcomsecretcookie' > /var/lib/rabbitmq/.erlang.cookie && chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie && chmod 600 /var/lib/rabbitmq/.erlang.cookie && exec docker-entrypoint.sh rabbitmq-server" ]
         ports:
             - "5672:5672"
             - "15672:15672"
@@ -24,6 +24,12 @@ services:
         volumes:
             - mysql_data:/var/lib/mysql
             - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+        healthcheck:
+            test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+            interval: 5s
+            timeout: 5s
+            retries: 30
+            start_period: 10s
 
     order:
         build:
@@ -39,6 +45,8 @@ services:
             - "5000:5000"
         depends_on:
             rabbitmq:
+                condition: service_healthy
+            mysql:
                 condition: service_healthy
 
     orderread:
@@ -58,6 +66,8 @@ services:
         depends_on:
             rabbitmq:
                 condition: service_healthy
+            mysql:
+                condition: service_healthy
 
     warehouse:
         build:
@@ -73,6 +83,8 @@ services:
             - "5100:5100"
         depends_on:
             rabbitmq:
+                condition: service_healthy
+            mysql:
                 condition: service_healthy
 
     payment:
@@ -90,17 +102,25 @@ services:
         depends_on:
             rabbitmq:
                 condition: service_healthy
+            mysql:
+                condition: service_healthy
 
     catalog:
         build:
             context: ./catalog
         environment:
             RABBITMQ_URL: amqp://rabbitmq
+            DB_HOST: mysql
+            DB_USER: catalog_app
+            DB_PASS: catalog_app_pw
+            DB_NAME: CatalogServiceDB
         restart: unless-stopped
         ports:
             - "5002:5000"
         depends_on:
             rabbitmq:
+                condition: service_healthy
+            mysql:
                 condition: service_healthy
 
     customer:
@@ -120,6 +140,8 @@ services:
         depends_on:
             rabbitmq:
                 condition: service_healthy
+            mysql:
+                condition: service_healthy
 
     shipping:
         build:
@@ -135,6 +157,8 @@ services:
             - "5004:5004"
         depends_on:
             rabbitmq:
+                condition: service_healthy
+            mysql:
                 condition: service_healthy
 
 volumes:

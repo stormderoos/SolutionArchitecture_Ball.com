@@ -1,5 +1,6 @@
 // Imports
 const amqp = require("amqplib");
+const crypto = require("crypto");
 const express = require("express");
 const rabbitmqUrl = process.env.RABBITMQ_URL || "amqp://localhost";
 const dbService = require("./dbService");
@@ -19,6 +20,9 @@ const run = async () => {
 
     await createChannel("warehouse_service", "local_exchange", events);
 
+    // Sync products from Catalog on startup so Warehouse has the same items
+    await syncProductsFromCatalog();
+
     // Consume messages
     rabbitmqChannel.consume("warehouse_service", async (message) => {
         const json = JSON.parse(message.content.toString());
@@ -33,12 +37,12 @@ const run = async () => {
             }
 
             // Handle order update
-            if (json.meta.job === "order_updated") {
+            if (json.meta.event === "order_updated") {
                 await dbService.updatePickList(json.data.order.orderId, json.data.orderProducts);
             }
 
             // Handle product replica from the Catalog (upstream owner of products)
-            if (json.meta.job === "product_created" || json.meta.job === "product_updated") {
+            if (json.meta.event === "product_created" || json.meta.event === "product_updated") {
                 await dbService.upsertProduct(json.data);
             }
         } catch (error) {
@@ -90,6 +94,17 @@ app.post("/package", async (req, res) => {
     }
 });
 
+// Get all warehouse items
+app.get("/items", async (req, res) => {
+    try {
+        const items = await dbService.getAllProducts();
+        res.json(items);
+    } catch (err) {
+        console.error("[WarehouseService] Error fetching items:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Disable powered by header for security reasons
 app.disable("x-powered-by");
 
@@ -117,6 +132,37 @@ const moveProduct = async (orderId, productsToPick) => {
     await publishMessage("local_exchange", "products_moved", dataToSend);
 
     console.log(`[WarehouseService] Products moved and event published`);
+}
+
+// Sync products from Catalog service and upsert into local Product table
+async function syncProductsFromCatalog() {
+    const catalogUrl = process.env.CATALOG_URL || "http://catalog:5000";
+    const maxAttempts = 5;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            console.log(`[WarehouseService] Fetching products from Catalog (${catalogUrl}) attempt ${attempt}`);
+            const res = await fetch(`${catalogUrl}/products`);
+            if (!res.ok) throw new Error(`Catalog returned ${res.status}`);
+            const products = await res.json();
+
+            for (const p of products) {
+                try {
+                    await dbService.upsertProduct(p);
+                } catch (err) {
+                    console.warn("[WarehouseService] upsertProduct failed for product", p.productId, err.message);
+                }
+            }
+
+            console.log("[WarehouseService] Catalog products synced to Warehouse");
+            return;
+        } catch (err) {
+            console.log(`[WarehouseService] Failed to fetch from Catalog (attempt ${attempt}):`, err.message);
+            if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 3000));
+        }
+    }
+
+    console.warn("[WarehouseService] Giving up syncing products from Catalog after multiple attempts");
 }
 
 // Create package
