@@ -270,6 +270,18 @@ INSERT INTO Carrier (name, pricePerShipment)
 SELECT 'PostNL', 5.95
 WHERE NOT EXISTS (SELECT 1 FROM Carrier WHERE name = 'PostNL');
 
+INSERT INTO Carrier (name, pricePerShipment)
+SELECT 'DHL', 3.95
+WHERE NOT EXISTS (SELECT 1 FROM Carrier WHERE name = 'DHL');
+
+INSERT INTO Carrier (name, pricePerShipment)
+SELECT 'DPD', 4.95
+WHERE NOT EXISTS (SELECT 1 FROM Carrier WHERE name = 'DPD');
+
+INSERT INTO Carrier (name, pricePerShipment)
+SELECT 'UPS', 4.95
+WHERE NOT EXISTS (SELECT 1 FROM Carrier WHERE name = 'UPS');
+
 -- ===== WarehouseServiceDB =====
 
 USE WarehouseServiceDB;
