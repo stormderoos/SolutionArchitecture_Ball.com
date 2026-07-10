@@ -237,25 +237,22 @@ async function handleMessage(json) {
     // add it to local CustomerOrder read model (CQRS query side).
     if (event === "order_created") {
         const order = json.data.order || json.data;
-        const orderId = order?.orderId || json.data.orderId;
-        const customerId = order?.customerId || json.data.customerId;
-        const orderStatus = order?.orderStatus || json.data.orderStatus;
 
-        if (!orderId) {
+        if (!order || !order.orderId) {
             console.error(`[CustomerService] order_created missing order data: ${JSON.stringify(json.data)}`);
             return;
         }
 
-        const result = await dbService.addOrder(customerId, orderId, orderStatus);
+        const result = await dbService.addOrder(order.customerId, order.orderId, order.orderStatus);
 
         if (result) {
             const date = new Date();
             await dbService.createEventLog({
                 name: `Order added at ${date}`,
-                description: `Added order ${orderId} for customer ${customerId}`,
+                description: `Added order ${order.orderId} for customer ${order.customerId}`,
                 date: date
             });
-            console.log(`[CustomerService] Added order ${orderId} for customer ${customerId}`);
+            console.log(`[CustomerService] Added order ${order.orderId} for customer ${order.customerId}`);
         }
     }
 
@@ -263,23 +260,21 @@ async function handleMessage(json) {
     // update local copy to stay synched.
     if (event === "order_updated") {
         const order = json.data.order || json.data;
-        const orderId = order?.orderId || json.data.orderId;
-        const orderStatus = order?.orderStatus || json.data.orderStatus;
 
-        if (!orderId) {
+        if (!order || !order.orderId) {
             console.error(`[CustomerService] order_updated missing order data: ${JSON.stringify(json.data)}`);
             return;
         }
 
-        await dbService.updateOrderStatus(orderId, orderStatus);
+        await dbService.updateOrderStatus(order.orderId, order.orderStatus);
 
         const date = new Date();
         await dbService.createEventLog({
             name: `Order updated at ${date}`,
-            description: `Updated order ${orderId} status to ${orderStatus}`,
+            description: `Updated order ${order.orderId} status to ${order.orderStatus}`,
             date: date
         });
-        console.log(`[CustomerService] Updated order ${orderId} to ${orderStatus}`);
+        console.log(`[CustomerService] Updated order ${order.orderId} to ${order.orderStatus}`);
     }
 
     // order_status_updated: Warehouse, Payment, or Shipping reported a status change ->
